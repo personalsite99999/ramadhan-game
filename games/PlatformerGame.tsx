@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 
 interface PlatformerGameProps {
@@ -12,10 +11,11 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
   const requestRef = useRef<number>();
   
   const gameState = useRef({
-    player: { x: 200, y: 500, w: 20, h: 20, vx: 0, vy: 0, grounded: false },
+    player: { x: 50, y: 500, w: 18, h: 18, vx: 0, vy: 0, grounded: false, color: '#bc13fe' },
     platforms: [] as { x: number, y: number, w: number, h: number }[],
     hazards: [] as { x: number, y: number, r: number, vx: number, vy: number }[],
-    goal: { x: 200, y: 50, w: 30, h: 30 },
+    particles: [] as { x: number, y: number, r: number, life: number, color: string }[],
+    goal: { x: 200, y: 50, w: 25, h: 25 },
     keys: { left: false, right: false, up: false }
   });
 
@@ -26,140 +26,161 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
     if (!ctx) return;
 
     const state = gameState.current;
-    state.player = { x: 200, y: 500, w: 20, h: 20, vx: 0, vy: 0, grounded: false };
+    state.player = { x: 50, y: 500, w: 18, h: 18, vx: 0, vy: 0, grounded: false, color: '#bc13fe' };
     state.keys = { left: false, right: false, up: false };
+    state.particles = [];
 
     // Platform generation
-    const platCount = Math.max(5, 12 - Math.floor(level / 5));
-    state.platforms = [{ x: 0, y: 580, w: 400, h: 40 }]; // Ground
+    const platCount = Math.max(6, 15 - Math.floor(level / 4));
+    state.platforms = [{ x: 0, y: 580, w: 400, h: 50 }]; // Ground
     
     for (let i = 0; i < platCount; i++) {
-      const w = Math.max(40, 160 - (level * 3));
+      const w = Math.max(35, 140 - (level * 2));
       const x = Math.random() * (400 - w);
       const y = 500 - (i * (450 / platCount));
-      state.platforms.push({ x, y, w, h: 12 });
+      state.platforms.push({ x, y, w, h: 10 });
     }
 
-    state.goal = { x: 50 + Math.random() * 300, y: 50, w: 30, h: 30 };
+    state.goal = { x: 50 + Math.random() * 300, y: 50, w: 25, h: 25 };
 
+    // Hazard generation
     state.hazards = [];
-    if (level >= 3) {
-      const hazardCount = Math.floor(level / 3) + 1;
-      const speedMult = 1.5 + (level * 0.1);
-      for (let i = 0; i < hazardCount; i++) {
+    if (level >= 2) {
+      const count = Math.floor(level / 2) + 1;
+      const speed = 1.0 + (level * 0.1);
+      for (let i = 0; i < count; i++) {
         state.hazards.push({
           x: Math.random() * 400,
           y: 100 + Math.random() * 350,
-          r: 6,
-          vx: (Math.random() - 0.5) * speedMult,
-          vy: (Math.random() - 0.5) * speedMult
+          r: 5,
+          vx: (Math.random() - 0.5) * speed,
+          vy: (Math.random() - 0.5) * speed
         });
       }
     }
 
     const update = () => {
       const p = state.player;
-      const gravity = 0.45 + (level * 0.005);
-      const moveSpeed = 3.5 + (level * 0.05);
-      const jumpPower = -9.5 - (level * 0.05);
+      const gravity = 0.5;
+      const friction = 0.85;
+      const accel = 1.2;
+      const jumpPower = -11;
 
-      // Horizontal Movement
-      if (state.keys.left) p.vx = -moveSpeed;
-      else if (state.keys.right) p.vx = moveSpeed;
-      else p.vx *= 0.8;
-
-      // Vertical Movement
+      // Input
+      if (state.keys.left) p.vx -= accel;
+      if (state.keys.right) p.vx += accel;
       if (state.keys.up && p.grounded) {
         p.vy = jumpPower;
         p.grounded = false;
+        // Jump particles
+        for(let i=0; i<5; i++) {
+           state.particles.push({ x: p.x + p.w/2, y: p.y + p.h, r: Math.random()*3, life: 1, color: '#bc13fe' });
+        }
       }
 
+      // Physics
+      p.vx *= friction;
       p.vy += gravity;
       p.x += p.vx;
       p.y += p.vy;
 
-      // Bounds
-      if (p.x < 0) p.x = 0;
-      if (p.x + p.w > 400) p.x = 400 - p.w;
-      if (p.y > 650) { onLose(); return; } // Fell off screen
+      // Trail particles
+      if (Math.abs(p.vx) > 0.5) {
+         state.particles.push({ x: p.x + p.w/2, y: p.y + p.h/2, r: 2, life: 0.5, color: '#bc13fe55' });
+      }
 
-      // Collision logic - FIXED: Removed p.vx >= 0 check
+      // Bounds
+      if (p.x < 0) { p.x = 0; p.vx = 0; }
+      if (p.x + p.w > 400) { p.x = 400 - p.w; p.vx = 0; }
+      if (p.y > 600) { onLose(); return; }
+
+      // Collision
       p.grounded = false;
       for (const plat of state.platforms) {
-        // Vertical collision (landing on platform)
-        if (p.vy >= 0 && 
-            p.x + p.w > plat.x && 
-            p.x < plat.x + plat.w &&
-            p.y + p.h > plat.y && 
-            p.y + p.h < plat.y + plat.h + p.vy) {
-          p.y = plat.y - p.h;
-          p.vy = 0;
-          p.grounded = true;
+        if (p.vx + p.x + p.w > plat.x && p.x + p.vx < plat.x + plat.w &&
+            p.y + p.h + p.vy > plat.y && p.y + p.vy < plat.y + plat.h) {
+          
+          if (p.vy > 0 && p.y + p.h <= plat.y + 5) {
+            p.y = plat.y - p.h;
+            p.vy = 0;
+            p.grounded = true;
+          }
         }
       }
 
       // Hazards
       for (const h of state.hazards) {
-        h.x += h.vx;
-        h.y += h.vy;
+        h.x += h.vx; h.y += h.vy;
         if (h.x < 0 || h.x > 400) h.vx *= -1;
         if (h.y < 0 || h.y > 600) h.vy *= -1;
-
-        const dx = (p.x + p.w / 2) - h.x;
-        const dy = (p.y + p.h / 2) - h.y;
-        if (Math.sqrt(dx * dx + dy * dy) < h.r + p.w / 2 - 2) {
-          onLose();
-          return;
-        }
+        const dx = (p.x + p.w/2) - h.x;
+        const dy = (p.y + p.h/2) - h.y;
+        if (Math.sqrt(dx*dx + dy*dy) < h.r + p.w/2) { onLose(); return; }
       }
+
+      // Particles update
+      state.particles = state.particles.filter(pt => {
+        pt.life -= 0.05;
+        pt.y += 0.5;
+        return pt.life > 0;
+      });
 
       // Goal
       if (p.x < state.goal.x + state.goal.w && p.x + p.w > state.goal.x &&
           p.y < state.goal.y + state.goal.h && p.y + p.h > state.goal.y) {
-        onWin();
-        return;
+        onWin(); return;
       }
 
       // Render
-      ctx.fillStyle = '#050505';
+      ctx.clearRect(0, 0, 400, 600);
+      ctx.fillStyle = '#050510';
       ctx.fillRect(0, 0, 400, 600);
-      
-      ctx.strokeStyle = '#00f3ff';
-      ctx.globalAlpha = 0.05;
-      ctx.beginPath();
-      for (let i = 0; i <= 400; i += 40) { ctx.moveTo(i, 0); ctx.lineTo(i, 600); }
-      for (let i = 0; i <= 600; i += 40) { ctx.moveTo(0, i); ctx.lineTo(400, i); }
-      ctx.stroke();
-      ctx.globalAlpha = 1.0;
 
-      // Draw Platforms
+      // Grid Lines (Aesthetic)
+      ctx.strokeStyle = '#00f3ff08';
+      ctx.beginPath();
+      for(let i=0; i<400; i+=40) { ctx.moveTo(i, 0); ctx.lineTo(i, 600); }
+      for(let i=0; i<600; i+=40) { ctx.moveTo(0, i); ctx.lineTo(400, i); }
+      ctx.stroke();
+
+      // Platforms
       ctx.fillStyle = '#00f3ff';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#00f3ff';
       for (const plat of state.platforms) {
         ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
-        ctx.fillStyle = '#00f3ff33';
-        ctx.fillRect(plat.x, plat.y + plat.h, plat.w, 4);
-        ctx.fillStyle = '#00f3ff';
       }
+      ctx.shadowBlur = 0;
 
-      // Draw Hazards
+      // Hazards
       ctx.fillStyle = '#ff003c';
       for (const h of state.hazards) {
         ctx.beginPath();
-        ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2);
+        ctx.arc(h.x, h.y, h.r, 0, Math.PI*2);
         ctx.fill();
       }
 
-      // Draw Goal
+      // Particles
+      for (const pt of state.particles) {
+         ctx.globalAlpha = pt.life;
+         ctx.fillStyle = pt.color;
+         ctx.beginPath();
+         ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI*2);
+         ctx.fill();
+      }
+      ctx.globalAlpha = 1.0;
+
+      // Goal
       ctx.fillStyle = '#39ff14';
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 20;
       ctx.shadowColor = '#39ff14';
       ctx.fillRect(state.goal.x, state.goal.y, state.goal.w, state.goal.h);
       ctx.shadowBlur = 0;
 
-      // Draw Player
-      ctx.fillStyle = '#bc13fe';
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = '#bc13fe';
+      // Player
+      ctx.fillStyle = p.color;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = p.color;
       ctx.fillRect(p.x, p.y, p.w, p.h);
       ctx.shadowBlur = 0;
 
@@ -167,17 +188,16 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      if (key === 'arrowleft' || key === 'a') state.keys.left = true;
-      if (key === 'arrowright' || key === 'd') state.keys.right = true;
-      if (key === 'arrowup' || key === 'w' || key === ' ') state.keys.up = true;
+      const k = e.key.toLowerCase();
+      if (k === 'arrowleft' || k === 'a') state.keys.left = true;
+      if (k === 'arrowright' || k === 'd') state.keys.right = true;
+      if (k === 'arrowup' || k === 'w' || k === ' ') state.keys.up = true;
     };
-
     const handleKeyUp = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      if (key === 'arrowleft' || key === 'a') state.keys.left = false;
-      if (key === 'arrowright' || key === 'd') state.keys.right = false;
-      if (key === 'arrowup' || key === 'w' || key === ' ') state.keys.up = false;
+      const k = e.key.toLowerCase();
+      if (k === 'arrowleft' || k === 'a') state.keys.left = false;
+      if (k === 'arrowright' || k === 'd') state.keys.right = false;
+      if (k === 'arrowup' || k === 'w' || k === ' ') state.keys.up = false;
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -192,38 +212,29 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
   }, [level, onWin, onLose]);
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 w-full h-full">
-      <canvas 
-        ref={canvasRef} 
-        width={400} 
-        height={600} 
-        className="rounded-lg border-2 border-[#00f3ff]/50 bg-black max-h-[60vh] w-auto aspect-[2/3]"
-      />
-      <div className="mt-6 flex gap-4 w-full max-w-[400px]">
-        <button 
-          onPointerDown={() => gameState.current.keys.left = true}
-          onPointerUp={() => gameState.current.keys.left = false}
-          onPointerLeave={() => gameState.current.keys.left = false}
-          className="flex-1 py-5 bg-black/80 border border-cyan-500 text-[#00f3ff] rounded active:scale-95 select-none cyber-font text-sm"
-        >
-          LEFT
-        </button>
+    <div className="flex flex-col items-center justify-center p-4 w-full h-full bg-black/40">
+      <div className="relative p-2 bg-black border-2 border-cyan-500/30 rounded-xl mb-6">
+        <canvas ref={canvasRef} width={400} height={600} className="w-full max-w-[320px] rounded-lg shadow-[0_0_20px_rgba(0,243,255,0.1)]" />
+      </div>
+      
+      <div className="flex gap-4 w-full max-w-[320px]">
+        <div className="flex flex-1 gap-2">
+           <button 
+             onPointerDown={() => gameState.current.keys.left = true}
+             onPointerUp={() => gameState.current.keys.left = false}
+             className="flex-1 py-4 bg-black/60 border border-cyan-500/50 text-white rounded-xl active:scale-95 transition-all cyber-font text-xs"
+           >L</button>
+           <button 
+             onPointerDown={() => gameState.current.keys.right = true}
+             onPointerUp={() => gameState.current.keys.right = false}
+             className="flex-1 py-4 bg-black/60 border border-cyan-500/50 text-white rounded-xl active:scale-95 transition-all cyber-font text-xs"
+           >R</button>
+        </div>
         <button 
           onPointerDown={() => gameState.current.keys.up = true}
           onPointerUp={() => gameState.current.keys.up = false}
-          onPointerLeave={() => gameState.current.keys.up = false}
-          className="flex-1 py-5 bg-[#bc13fe] text-black font-bold rounded active:scale-95 select-none cyber-font text-sm shadow-[0_0_15px_#bc13fe]"
-        >
-          JUMP
-        </button>
-        <button 
-          onPointerDown={() => gameState.current.keys.right = true}
-          onPointerUp={() => gameState.current.keys.right = false}
-          onPointerLeave={() => gameState.current.keys.right = false}
-          className="flex-1 py-5 bg-black/80 border border-cyan-500 text-[#00f3ff] rounded active:scale-95 select-none cyber-font text-sm"
-        >
-          RIGHT
-        </button>
+          className="flex-1 py-4 bg-purple-600 border border-purple-400 text-white font-black rounded-xl active:scale-95 transition-all cyber-font text-xs shadow-[0_0_15px_rgba(188,19,254,0.4)]"
+        >JUMP</button>
       </div>
     </div>
   );

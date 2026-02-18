@@ -6,7 +6,7 @@ import MemoryMatch from '../games/MemoryMatch';
 import MathQuiz from '../games/MathQuiz';
 import PlatformerGame from '../games/PlatformerGame';
 import SnakeGame from '../games/SnakeGame';
-import { ArrowLeft, ChevronRight, RotateCcw, Timer, Save } from 'lucide-react';
+import { ArrowLeft, ChevronRight, RotateCcw, Timer, Save, Trophy, XCircle } from 'lucide-react';
 
 interface GameContainerProps {
   gameType: GameType;
@@ -20,19 +20,16 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
   const [gameState, setGameState] = useState<GameState>('PLAYING');
   const [elapsedTime, setElapsedTime] = useState(0);
   const [playerName, setPlayerName] = useState('');
+  const [isQualified, setIsQualified] = useState(false);
   const timerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
-
-  // Use refs to keep track of current state for stable callbacks
-  const levelRef = useRef(level);
-  useEffect(() => { levelRef.current = level; }, [level]);
 
   useEffect(() => {
     if (gameState === 'PLAYING') {
       startTimeRef.current = Date.now();
       timerRef.current = window.setInterval(() => {
         setElapsedTime(Date.now() - startTimeRef.current);
-      }, 100); // Updated to 100ms for performance, UI still feels fast
+      }, 100);
     } else {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -42,30 +39,56 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [gameState]);
 
-  // Stable callbacks for the games
+  const checkQualification = useCallback(() => {
+    const leaderboard: GlobalLeaderboard = JSON.parse(localStorage.getItem('ramadhan_leaderboard') || '{}');
+    const entries = leaderboard[gameType] || [];
+    
+    if (entries.length < 5) return true;
+
+    const sorted = [...entries].sort((a, b) => {
+      if (b.level !== a.level) return b.level - a.level;
+      return a.time - b.time;
+    });
+
+    const fifthPlace = sorted[4];
+    if (level > fifthPlace.level) return true;
+    if (level === fifthPlace.level && elapsedTime < fifthPlace.time) return true;
+
+    return false;
+  }, [gameType, level, elapsedTime]);
+
   const handleWin = useCallback(() => {
+    const qualified = checkQualification();
+    setIsQualified(qualified);
     setGameState('RECORD_NAME');
-  }, []);
+  }, [checkQualification]);
 
   const handleLose = useCallback(() => {
     setGameState('GAMEOVER');
   }, []);
 
   const saveRecord = () => {
-    if (!playerName.trim()) return;
-    
-    const leaderboard: GlobalLeaderboard = JSON.parse(localStorage.getItem('ramadhan_leaderboard') || '{}');
-    if (!leaderboard[gameType]) leaderboard[gameType] = [];
-    
-    const newEntry: LeaderboardEntry = {
-      name: playerName.trim(),
-      time: elapsedTime,
-      level: level,
-      date: new Date().toISOString()
-    };
-    
-    leaderboard[gameType].push(newEntry);
-    localStorage.setItem('ramadhan_leaderboard', JSON.stringify(leaderboard));
+    if (isQualified && playerName.trim()) {
+      const leaderboard: GlobalLeaderboard = JSON.parse(localStorage.getItem('ramadhan_leaderboard') || '{}');
+      if (!leaderboard[gameType]) leaderboard[gameType] = [];
+      
+      const newEntry: LeaderboardEntry = {
+        name: playerName.trim().toUpperCase(),
+        time: elapsedTime,
+        level: level,
+        date: new Date().toISOString()
+      };
+      
+      const updatedEntries = [...leaderboard[gameType], newEntry]
+        .sort((a, b) => {
+          if (b.level !== a.level) return b.level - a.level;
+          return a.time - b.time;
+        })
+        .slice(0, 5);
+      
+      leaderboard[gameType] = updatedEntries;
+      localStorage.setItem('ramadhan_leaderboard', JSON.stringify(leaderboard));
+    }
     
     if (level < 30) {
       setGameState('LEVEL_UP');
@@ -79,18 +102,18 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
     setLevel(next);
     onLevelUp(next);
     setElapsedTime(0);
+    setPlayerName('');
     setGameState('PLAYING');
   };
 
   const retryLevel = () => {
     setElapsedTime(0);
+    setPlayerName('');
     setGameState('PLAYING');
   };
 
-  // Memoize the game component to avoid re-mounting on timer ticks
   const gameComponent = useMemo(() => {
     if (gameState !== 'PLAYING') return null;
-    
     switch (gameType) {
       case GameType.MAZE: return <MazeGame level={level} onWin={handleWin} onLose={handleLose} />;
       case GameType.MEMORY: return <MemoryMatch level={level} onWin={handleWin} onLose={handleLose} />;
@@ -103,17 +126,16 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
 
   return (
     <div className="relative w-full h-full flex flex-col bg-black overflow-hidden">
-      {/* HUD Header */}
       <div className="p-4 flex justify-between items-center border-b border-[#00f3ff]/30 bg-black/80 z-20">
-        <button onClick={onExit} className="p-2 hover:bg-[#00f3ff]/20 rounded transition-colors">
+        <button onClick={onExit} className="p-2 hover:bg-[#00f3ff]/20 rounded transition-colors text-[#00f3ff]">
           <ArrowLeft size={24} />
         </button>
         <div className="text-center">
-          <div className="text-[10px] opacity-60">MISSION_TARGET</div>
-          <div className="cyber-font text-xl neon-glow-cyan">LEVEL {level}</div>
+          <div className="text-[10px] opacity-60 text-[#00f3ff]">MISSION_NODE</div>
+          <div className="cyber-font text-xl neon-glow-cyan text-[#00f3ff]">LEVEL {level}</div>
         </div>
         <div className="flex flex-col items-end">
-          <div className="text-[10px] opacity-60 flex items-center gap-1"><Timer size={10}/> RUNTIME</div>
+          <div className="text-[10px] opacity-60 flex items-center gap-1 text-[#00f3ff]"><Timer size={10}/> RUNTIME</div>
           <div className="cyber-font text-xs text-[#39ff14]">{(elapsedTime / 1000).toFixed(1)}s</div>
         </div>
       </div>
@@ -121,75 +143,67 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
       <div className="flex-1 relative">
         {gameComponent}
 
-        {/* Record Name Overlay */}
         {gameState === 'RECORD_NAME' && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl p-6">
-            <h2 className="cyber-font text-3xl mb-2 text-[#facc15] neon-glow-cyan text-center">NEW RECORD!</h2>
-            <div className="text-center mb-6">
-              <p className="text-xs opacity-60 uppercase mb-1">Clear Time</p>
-              <p className="text-4xl cyber-font text-[#39ff14]">{(elapsedTime / 1000).toFixed(2)}s</p>
-            </div>
-            
-            <div className="w-full max-w-xs space-y-4">
-              <div className="relative">
-                <input 
-                  type="text" 
-                  maxLength={12}
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="INPUT_ID_TAG"
-                  className="w-full bg-black/50 border border-cyan-500/50 p-4 cyber-font text-center text-white focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                />
-              </div>
-              <button 
-                onClick={saveRecord}
-                className="w-full py-4 bg-cyan-600 text-white font-bold cyber-font flex items-center justify-center gap-2 hover:bg-cyan-500 active:scale-95 transition-all"
-              >
-                <Save size={18} /> UPLOAD SCORE
-              </button>
-            </div>
+            {isQualified ? (
+              <>
+                <div className="mb-4 p-4 bg-[#facc15]/10 border-2 border-[#facc15] rounded-full animate-bounce">
+                  <Trophy size={48} className="text-[#facc15]" />
+                </div>
+                <h2 className="cyber-font text-3xl mb-2 text-[#facc15] neon-glow-orange text-center">TOP 5 RANK!</h2>
+                <div className="text-center mb-6">
+                  <p className="text-xs opacity-60 uppercase mb-1 text-white">Clear Time</p>
+                  <p className="text-4xl cyber-font text-[#39ff14]">{(elapsedTime / 1000).toFixed(2)}s</p>
+                </div>
+                <div className="w-full max-w-xs space-y-4">
+                  <input 
+                    type="text" 
+                    maxLength={10}
+                    autoFocus
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    placeholder="ENTER_NAME"
+                    className="w-full bg-black/50 border-2 border-[#facc15] p-4 cyber-font text-center text-white focus:outline-none"
+                  />
+                  <button onClick={saveRecord} className="w-full py-4 bg-[#facc15] text-black font-black cyber-font flex items-center justify-center gap-2">
+                    PUBLISH RECORD <Save size={18} />
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 p-4 bg-red-500/10 border-2 border-red-500 rounded-full">
+                  <XCircle size={48} className="text-red-500" />
+                </div>
+                <h2 className="cyber-font text-2xl mb-2 text-red-500 text-center uppercase">REKOR TIDAK TERKEJAR</h2>
+                <p className="text-white/60 text-[10px] cyber-font mb-8 text-center max-w-[200px]">Skor kamu belum cukup untuk masuk Hall of Fame.</p>
+                <button onClick={saveRecord} className="px-10 py-4 border-2 border-[#00f3ff] text-[#00f3ff] font-bold cyber-font">
+                  LANJUTKAN
+                </button>
+              </>
+            )}
           </div>
         )}
 
-        {/* Level Up Overlay */}
         {gameState === 'LEVEL_UP' && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-lg animate-in fade-in zoom-in">
-            <h2 className="cyber-font text-4xl mb-2 text-[#39ff14] drop-shadow-[0_0_10px_#39ff14]">LEVEL CLEAR</h2>
-            <p className="text-[#39ff14] mb-8">NODE UPLOAD SUCCESSFUL</p>
-            <button 
-              onClick={nextLevel}
-              className="flex items-center gap-2 px-8 py-3 bg-[#39ff14] text-black font-bold cyber-font hover:brightness-110 active:scale-95 transition-all"
-            >
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-lg">
+            <h2 className="cyber-font text-4xl mb-2 text-[#39ff14]">LEVEL CLEAR</h2>
+            <button onClick={nextLevel} className="flex items-center gap-2 px-8 py-3 bg-[#39ff14] text-black font-bold cyber-font">
               NEXT NODE <ChevronRight size={20} />
             </button>
           </div>
         )}
 
-        {/* Game Over Overlay */}
         {gameState === 'GAMEOVER' && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-lg">
-            <h2 className="cyber-font text-4xl mb-2 text-[#ff003c] drop-shadow-[0_0_10px_#ff003c]">SYSTEM CRASH</h2>
-            <p className="text-[#ff003c] mb-8">CONNECTION SEVERED</p>
+            <h2 className="cyber-font text-4xl mb-2 text-[#ff003c]">SYSTEM CRASH</h2>
             <div className="flex gap-4">
-              <button 
-                onClick={retryLevel}
-                className="flex items-center gap-2 px-8 py-3 bg-[#00f3ff] text-black font-bold cyber-font hover:brightness-110 active:scale-95 transition-all"
-              >
-                REBOOT <RotateCcw size={20} />
-              </button>
-              <button 
-                onClick={onExit}
-                className="flex items-center gap-2 px-8 py-3 border border-[#00f3ff] text-[#00f3ff] font-bold cyber-font hover:bg-[#00f3ff]/10 active:scale-95 transition-all"
-              >
-                ABORT
-              </button>
+              <button onClick={retryLevel} className="px-8 py-3 bg-[#00f3ff] text-black font-bold cyber-font">REBOOT</button>
+              <button onClick={onExit} className="px-8 py-3 border border-[#00f3ff] text-[#00f3ff] font-bold cyber-font">ABORT</button>
             </div>
           </div>
         )}
       </div>
-
-      <div className="absolute inset-0 opacity-10 pointer-events-none" 
-           style={{ backgroundImage: 'linear-gradient(#00f3ff 1px, transparent 1px), linear-gradient(90deg, #00f3ff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
     </div>
   );
 };
