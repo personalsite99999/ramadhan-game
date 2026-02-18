@@ -16,14 +16,12 @@ const MemoryMatch: React.FC<MemoryMatchProps> = ({ level, onWin, onLose }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const initGame = useCallback(() => {
-    // Scaling grid size based on level - Capped at 6x6 for mobile UX
-    const dim = level <= 2 ? 2 : (level <= 10 ? 4 : 6);
+    // Scaling grid size based on level
+    const dim = level <= 2 ? 2 : (level <= 6 ? 4 : (level <= 15 ? 6 : 8));
     setGridDim(dim);
     
     const count = (dim * dim) / 2;
-    // Fisher-Yates shuffle symbols
-    const shuffledSymbols = [...SYMBOLS].sort(() => Math.random() - 0.5);
-    const selectedSymbols = shuffledSymbols.slice(0, count);
+    const selectedSymbols = SYMBOLS.slice(0, count);
     const deck = [...selectedSymbols, ...selectedSymbols]
       .sort(() => Math.random() - 0.5)
       .map((s, i) => ({ id: i, symbol: s, flipped: false, solved: false }));
@@ -70,7 +68,7 @@ const MemoryMatch: React.FC<MemoryMatchProps> = ({ level, onWin, onLose }) => {
         setTimeout(() => {
           setFlipped([]);
           setIsProcessing(false);
-        }, 800);
+        }, 1000);
       }
     }
   }, [flipped, cards, onWin]);

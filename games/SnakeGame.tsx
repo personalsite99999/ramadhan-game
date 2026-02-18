@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface SnakeGameProps {
   level: number;
@@ -8,208 +8,191 @@ interface SnakeGameProps {
 
 const SnakeGame: React.FC<SnakeGameProps> = ({ level, onWin, onLose }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [score, setScore] = useState(0);
+  const [displayScore, setDisplayScore] = useState(0);
+  const isMounted = useRef(true);
+  
   const targetScore = 5 + Math.floor(level / 2);
   const gridSize = 20;
-  const isWrapping = level >= 15;
 
-  const handleGameEnd = useCallback((isWin: boolean) => {
-    if (isWin) onWin();
-    else onLose();
-  }, [onWin, onLose]);
-
-  const gameData = useRef({
+  const state = useRef({
     snake: [{ x: 10, y: 10 }, { x: 10, y: 11 }, { x: 10, y: 12 }],
     dir: { x: 0, y: -1 },
     nextDir: { x: 0, y: -1 },
     food: { x: 5, y: 5 },
-    obstacles: [] as { x: number, y: number }[]
+    obstacles: [] as { x: number, y: number }[],
+    active: true,
+    score: 0
   });
 
   useEffect(() => {
+    isMounted.current = true;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const state = gameData.current;
-    state.snake = [{ x: 10, y: 10 }, { x: 10, y: 11 }, { x: 10, y: 12 }];
-    state.dir = { x: 0, y: -1 };
-    state.nextDir = { x: 0, y: -1 };
-    state.obstacles = [];
+    const s = state.current;
+    s.active = true;
+    s.score = 0;
+    s.snake = [{ x: 10, y: 10 }, { x: 10, y: 11 }, { x: 10, y: 12 }];
+    s.dir = { x: 0, y: -1 };
+    s.nextDir = { x: 0, y: -1 };
+    s.obstacles = [];
+    setDisplayScore(0);
     
-    // Level difficulty scaling
-    const speed = Math.max(50, 150 - (level * 4));
+    // Speed formula: faster as level increases
+    const speed = Math.max(60, 180 - (level * 6));
     
+    // Generate Obstacles
     if (level > 4) {
-      const obsCount = Math.floor(level / 2.5);
-      for(let i=0; i<obsCount; i++) {
+      const obstacleCount = Math.floor(level / 2.5);
+      for(let i=0; i < obstacleCount; i++) {
         let ox, oy;
         do {
           ox = Math.floor(Math.random() * gridSize);
           oy = Math.floor(Math.random() * gridSize);
         } while (
-          (ox === 10 && oy >= 8 && oy <= 14) || // Don't block start
-          (ox === state.food.x && oy === state.food.y)
+          (ox === 10 && oy >= 8 && oy <= 14) || // Player start safety
+          (ox === 5 && oy === 5) || // Initial food safety
+          s.obstacles.some(o => o.x === ox && o.y === oy)
         );
-        state.obstacles.push({ x: ox, y: oy });
+        s.obstacles.push({ x: ox, y: oy });
       }
     }
 
+    let lastTick = 0;
+    let animId: number;
+
     const move = () => {
-      state.dir = state.nextDir;
-      const head = { x: state.snake[0].x + state.dir.x, y: state.snake[0].y + state.dir.y };
+      s.dir = s.nextDir;
+      const head = { x: s.snake[0].x + s.dir.x, y: s.snake[0].y + s.dir.y };
       
-      if (isWrapping) {
+      // Warp logic for high levels
+      if (level >= 15) {
         if (head.x < 0) head.x = gridSize - 1;
         if (head.x >= gridSize) head.x = 0;
         if (head.y < 0) head.y = gridSize - 1;
         if (head.y >= gridSize) head.y = 0;
-      } else {
-        if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize) {
-          handleGameEnd(false); return;
-        }
+      } else if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize) {
+        s.active = false;
+        onLose();
+        return;
       }
 
-      // Collisions with body
-      if (state.snake.some(s => s.x === head.x && s.y === head.y)) { handleGameEnd(false); return; }
-      // Collisions with obstacles
-      if (state.obstacles.some(o => o.x === head.x && o.y === head.y)) { handleGameEnd(false); return; }
+      // Self or Obstacle collision
+      if (s.snake.some(seg => seg.x === head.x && seg.y === head.y) || 
+          s.obstacles.some(o => o.x === head.x && o.y === head.y)) {
+        s.active = false;
+        onLose();
+        return;
+      }
 
-      state.snake.unshift(head);
-      if (head.x === state.food.x && head.y === state.food.y) {
-        setScore(s => {
-          const ns = s + 1;
-          if (ns >= targetScore) handleGameEnd(true);
-          return ns;
-        });
-        // New food
-        let nf;
+      s.snake.unshift(head);
+
+      // Food collision
+      if (head.x === s.food.x && head.y === s.food.y) {
+        s.score++;
+        setDisplayScore(s.score);
+        
+        if (s.score >= targetScore) {
+          s.active = false;
+          onWin();
+          return;
+        }
+
+        // Relocate food
         do {
-          nf = { x: Math.floor(Math.random() * gridSize), y: Math.floor(Math.random() * gridSize) };
+          s.food = { x: Math.floor(Math.random() * gridSize), y: Math.floor(Math.random() * gridSize) };
         } while (
-          state.snake.some(s => s.x === nf.x && s.y === nf.y) || 
-          state.obstacles.some(o => o.x === nf.x && o.y === nf.y)
+          s.snake.some(seg => seg.x === s.food.x && seg.y === s.food.y) || 
+          s.obstacles.some(o => o.x === s.food.x && o.y === s.food.y)
         );
-        state.food = nf;
       } else {
-        state.snake.pop();
+        s.snake.pop();
       }
     };
 
-    let animId: number;
-    let lastTick = 0;
     const draw = (t: number) => {
+      if (!s.active || !isMounted.current) return;
+
       if (t - lastTick > speed) {
         move();
         lastTick = t;
       }
 
-      ctx.fillStyle = '#050510';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      if (!s.active) return; // Re-check after move
 
-      const cell = canvas.width / gridSize;
+      ctx.fillStyle = '#020210';
+      ctx.fillRect(0, 0, 300, 300);
+      const cell = 300 / gridSize;
       
-      // Grid lines
-      ctx.strokeStyle = '#ffffff05';
-      ctx.lineWidth = 1;
-      for(let i=0; i<=gridSize; i++) {
-        ctx.beginPath();
-        ctx.moveTo(i*cell, 0); ctx.lineTo(i*cell, canvas.height);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, i*cell); ctx.lineTo(canvas.width, i*cell);
-        ctx.stroke();
-      }
-
       // Obstacles
       ctx.fillStyle = '#444455';
-      ctx.shadowBlur = 5;
-      ctx.shadowColor = '#444455';
-      state.obstacles.forEach(o => ctx.fillRect(o.x * cell + 2, o.y * cell + 2, cell - 4, cell - 4));
+      s.obstacles.forEach(o => ctx.fillRect(o.x * cell + 1, o.y * cell + 1, cell - 2, cell - 2));
 
-      // Food (Pulsing)
-      const pulse = Math.sin(t / 150) * 3;
+      // Food
       ctx.fillStyle = '#39ff14';
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 10;
       ctx.shadowColor = '#39ff14';
       ctx.beginPath();
-      ctx.arc(state.food.x * cell + cell/2, state.food.y * cell + cell/2, cell/2 - 4 + pulse/2, 0, Math.PI * 2);
+      ctx.arc(s.food.x * cell + cell/2, s.food.y * cell + cell/2, cell/2 - 3, 0, Math.PI*2);
       ctx.fill();
-      ctx.shadowBlur = 0;
 
       // Snake
-      state.snake.forEach((s, i) => {
-        const isHead = i === 0;
-        ctx.fillStyle = isHead ? '#bc13fe' : `rgba(188, 19, 254, ${1 - (i / state.snake.length) * 0.7})`;
-        if (isHead) {
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = '#bc13fe';
-        }
-        ctx.fillRect(s.x * cell + 1, s.y * cell + 1, cell - 2, cell - 2);
-        ctx.shadowBlur = 0;
+      ctx.shadowBlur = 0;
+      s.snake.forEach((seg, i) => {
+        ctx.fillStyle = i === 0 ? '#bc13fe' : `rgba(188, 19, 254, ${1 - (i / s.snake.length) * 0.7})`;
+        ctx.fillRect(seg.x * cell + 1, seg.y * cell + 1, cell - 2, cell - 2);
       });
 
       animId = requestAnimationFrame(draw);
     };
 
     animId = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(animId);
-  }, [level, targetScore, isWrapping, handleGameEnd]);
-
-  const setDirection = useCallback((dir: string) => {
-    const state = gameData.current;
-    if (dir === 'up' && state.dir.y === 0) state.nextDir = { x: 0, y: -1 };
-    else if (dir === 'down' && state.dir.y === 0) state.nextDir = { x: 0, y: 1 };
-    else if (dir === 'left' && state.dir.x === 0) state.nextDir = { x: -1, y: 0 };
-    else if (dir === 'right' && state.dir.x === 0) state.nextDir = { x: 1, y: 0 };
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      if (key === 'arrowup' || key === 'w') setDirection('up');
-      if (key === 'arrowdown' || key === 's') setDirection('down');
-      if (key === 'arrowleft' || key === 'a') setDirection('left');
-      if (key === 'arrowright' || key === 'd') setDirection('right');
+    return () => {
+      isMounted.current = false;
+      s.active = false;
+      cancelAnimationFrame(animId);
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setDirection]);
+  }, [level, targetScore, onWin, onLose]);
+
+  const setDir = (x: number, y: number) => {
+    const s = state.current;
+    if (!s.active) return;
+    // Prevent 180-degree turns
+    if (x !== 0 && s.dir.x === 0) s.nextDir = { x, y: 0 };
+    if (y !== 0 && s.dir.y === 0) s.nextDir = { x: 0, y };
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 h-full w-full bg-black/40">
-      <div className="mb-4 flex gap-10 items-end">
-         <div className="text-center">
-            <p className="text-[10px] cyber-font text-purple-400 tracking-widest uppercase mb-1 opacity-50">Score</p>
-            <p className="text-2xl cyber-font font-black text-white">{score} / {targetScore}</p>
-         </div>
-         <div className="text-center">
-            <p className="text-[10px] cyber-font text-purple-400 tracking-widest uppercase mb-1 opacity-50">Boundary</p>
-            <p className="text-xs cyber-font font-bold text-[#39ff14] animate-pulse uppercase">{isWrapping ? 'WARP_ACTIVE' : 'HARD_WALL'}</p>
-         </div>
+    <div className="flex flex-col items-center justify-center p-4 h-full w-full bg-black/40 select-none touch-none">
+      <div className="mb-4 flex gap-8">
+        <div className="text-center">
+          <p className="text-[10px] cyber-font text-purple-400 uppercase opacity-50 tracking-widest">Score</p>
+          <p className="text-xl cyber-font font-black text-white">{displayScore}/{targetScore}</p>
+        </div>
+        <div className="text-center">
+          <p className="text-[10px] cyber-font text-purple-400 uppercase opacity-50 tracking-widest">Mode</p>
+          <p className="text-xs cyber-font font-bold text-[#39ff14] animate-pulse">{level >= 15 ? 'WARP_ON' : 'WALLS_ON'}</p>
+        </div>
       </div>
 
-      <div className="relative p-1 bg-black border-2 border-purple-500/30 rounded-xl mb-6 shadow-[0_0_30px_rgba(188,19,254,0.1)]">
-        <canvas ref={canvasRef} width={300} height={300} className="rounded-lg max-w-full" />
+      <div className="relative p-1 bg-black border-2 border-purple-500/30 rounded-xl mb-6 shadow-[0_0_20px_#bc13fe33]">
+        <canvas ref={canvasRef} width={300} height={300} className="rounded-lg" />
+        <div className="absolute inset-0 pointer-events-none opacity-5 bg-[radial-gradient(#bc13fe_1px,transparent_1px)] [background-size:10px_10px]" />
       </div>
 
       <div className="grid grid-cols-3 gap-2 w-full max-w-[200px]">
+        <div /> 
+        <button onPointerDown={() => setDir(0, -1)} className="aspect-square bg-black/60 border border-purple-500 rounded-xl text-purple-400 text-xl flex items-center justify-center active:bg-purple-500 active:text-white transition-all shadow-lg active:scale-95">▲</button> 
         <div />
-        <button onPointerDown={() => setDirection('up')} className="aspect-square bg-black/60 border border-purple-500 rounded-xl flex items-center justify-center active:scale-90 shadow-[0_0_15px_#bc13fe33]">
-          <span className="text-xl text-purple-400">▲</span>
-        </button>
-        <div />
-        <button onPointerDown={() => setDirection('left')} className="aspect-square bg-black/60 border border-purple-500 rounded-xl flex items-center justify-center active:scale-90 shadow-[0_0_15px_#bc13fe33]">
-          <span className="text-xl text-purple-400">◀</span>
-        </button>
-        <button onPointerDown={() => setDirection('down')} className="aspect-square bg-black/60 border border-purple-500 rounded-xl flex items-center justify-center active:scale-90 shadow-[0_0_15px_#bc13fe33]">
-          <span className="text-xl text-purple-400">▼</span>
-        </button>
-        <button onPointerDown={() => setDirection('right')} className="aspect-square bg-black/60 border border-purple-500 rounded-xl flex items-center justify-center active:scale-90 shadow-[0_0_15px_#bc13fe33]">
-          <span className="text-xl text-purple-400">▶</span>
-        </button>
+        
+        <button onPointerDown={() => setDir(-1, 0)} className="aspect-square bg-black/60 border border-purple-500 rounded-xl text-purple-400 text-xl flex items-center justify-center active:bg-purple-500 active:text-white transition-all shadow-lg active:scale-95">◀</button>
+        <button onPointerDown={() => setDir(0, 1)} className="aspect-square bg-black/60 border border-purple-500 rounded-xl text-purple-400 text-xl flex items-center justify-center active:bg-purple-500 active:text-white transition-all shadow-lg active:scale-95">▼</button>
+        <button onPointerDown={() => setDir(1, 0)} className="aspect-square bg-black/60 border border-purple-500 rounded-xl text-purple-400 text-xl flex items-center justify-center active:bg-purple-500 active:text-white transition-all shadow-lg active:scale-95">▶</button>
       </div>
+      
+      <div className="mt-4 text-[8px] cyber-font text-white/30 tracking-[0.2em] uppercase">Security Level: {level <= 10 ? 'LOW' : level <= 20 ? 'MEDIUM' : 'CRITICAL'}</div>
     </div>
   );
 };

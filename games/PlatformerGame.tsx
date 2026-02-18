@@ -8,103 +8,105 @@ interface PlatformerGameProps {
 
 const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
+  const isMounted = useRef(true);
   
-  const gameState = useRef({
-    player: { x: 50, y: 500, w: 18, h: 18, vx: 0, vy: 0, grounded: false, color: '#bc13fe' },
+  const state = useRef({
+    player: { x: 50, y: 500, w: 20, h: 20, vx: 0, vy: 0, grounded: false },
     platforms: [] as { x: number, y: number, w: number, h: number }[],
     hazards: [] as { x: number, y: number, r: number, vx: number, vy: number }[],
-    particles: [] as { x: number, y: number, r: number, life: number, color: string }[],
-    goal: { x: 200, y: 50, w: 25, h: 25 },
-    keys: { left: false, right: false, up: false }
+    goal: { x: 0, y: 0, w: 30, h: 30 },
+    keys: { left: false, right: false, up: false },
+    cameraY: 0,
+    active: true
   });
 
   useEffect(() => {
+    isMounted.current = true;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const state = gameState.current;
-    state.player = { x: 50, y: 500, w: 18, h: 18, vx: 0, vy: 0, grounded: false, color: '#bc13fe' };
-    state.keys = { left: false, right: false, up: false };
-    state.particles = [];
+    const s = state.current;
+    s.active = true;
+    s.player = { x: 50, y: 500, w: 20, h: 20, vx: 0, vy: 0, grounded: false };
+    s.keys = { left: false, right: false, up: false };
+    s.cameraY = 0;
+    lastTimeRef.current = 0;
 
-    // Improved Platform generation to guarantee reachability
-    const platCount = Math.max(8, 18 - Math.floor(level / 3));
-    state.platforms = [{ x: 0, y: 580, w: 400, h: 50 }]; // Ground
-    
-    let lastY = 580;
-    for (let i = 0; i < platCount; i++) {
-      const w = Math.max(40, 150 - (level * 2.5));
-      const x = Math.random() * (400 - w);
-      // Max vertical distance is ~100px to ensure jump reachability (jump is ~120px max)
-      const y = lastY - (Math.random() * 40 + 60); 
-      if (y < 80) break; // Don't block goal
-      state.platforms.push({ x, y, w, h: 12 });
-      lastY = y;
+    // Level Generation
+    s.platforms = [{ x: 0, y: 560, w: 400, h: 40 }]; 
+    let curY = 560;
+    let curX = 50;
+    const count = 12 + Math.floor(level / 2);
+
+    for (let i = 0; i < count; i++) {
+      const w = Math.max(60, 150 - (level * 3));
+      const distY = 75 + Math.random() * 25;
+      const distX = 180;
+      const nextX = Math.max(10, Math.min(390 - w, curX + (Math.random() * distX - distX / 2)));
+      const nextY = curY - distY;
+      s.platforms.push({ x: nextX, y: nextY, w, h: 12 });
+      curY = nextY;
+      curX = nextX;
     }
 
-    state.goal = { x: 50 + Math.random() * 300, y: 50, w: 25, h: 25 };
+    const top = s.platforms[s.platforms.length - 1];
+    s.goal = { x: top.x + top.w / 2 - 15, y: top.y - 50, w: 30, h: 30 };
 
-    // Hazard generation
-    state.hazards = [];
-    if (level >= 2) {
-      const count = Math.floor(level / 2) + 1;
-      const speed = 1.0 + (level * 0.12);
-      for (let i = 0; i < count; i++) {
-        state.hazards.push({
+    s.hazards = [];
+    if (level > 2) {
+      for (let i = 0; i < Math.min(10, Math.floor(level / 2)); i++) {
+        s.hazards.push({
           x: Math.random() * 400,
-          y: 100 + Math.random() * 350,
+          y: Math.random() * 500,
           r: 6,
-          vx: (Math.random() - 0.5) * speed,
-          vy: (Math.random() - 0.5) * speed
+          vx: (Math.random() - 0.5) * (2 + level * 0.1),
+          vy: (Math.random() - 0.5) * (2 + level * 0.1)
         });
       }
     }
 
-    const update = () => {
-      const p = state.player;
-      const gravity = 0.55;
-      const friction = 0.82;
-      const accel = 1.3;
-      const jumpPower = -12;
-
-      // Input
-      if (state.keys.left) p.vx -= accel;
-      if (state.keys.right) p.vx += accel;
-      if (state.keys.up && p.grounded) {
-        p.vy = jumpPower;
-        p.grounded = false;
-        // Jump particles
-        for(let i=0; i<6; i++) {
-           state.particles.push({ x: p.x + p.w/2, y: p.y + p.h, r: Math.random()*4, life: 1, color: '#bc13fe' });
-        }
+    const loop = (t: number) => {
+      if (!s.active || !isMounted.current) return;
+      
+      if (!lastTimeRef.current) {
+        lastTimeRef.current = t;
+        requestRef.current = requestAnimationFrame(loop);
+        return;
       }
+      
+      const dt = Math.min(2, (t - lastTimeRef.current) / 16.67);
+      lastTimeRef.current = t;
 
-      // Physics
-      p.vx *= friction;
-      p.vy += gravity;
-      p.x += p.vx;
-      p.y += p.vy;
+      const p = s.player;
+      const grav = 0.5 * dt;
+      const fric = Math.pow(0.85, dt);
+      const speed = (p.grounded ? 1.5 : 0.8) * dt;
 
-      // Trail particles
-      if (Math.abs(p.vx) > 0.6) {
-         state.particles.push({ x: p.x + p.w/2, y: p.y + p.h/2, r: 2, life: 0.5, color: '#bc13fe44' });
-      }
+      if (s.keys.left) p.vx -= speed;
+      if (s.keys.right) p.vx += speed;
+      if (s.keys.up && p.grounded) { p.vy = -11.5; p.grounded = false; }
 
-      // Bounds
+      p.vx *= fric;
+      p.vy += grav;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
       if (p.x < 0) { p.x = 0; p.vx = 0; }
       if (p.x + p.w > 400) { p.x = 400 - p.w; p.vx = 0; }
-      if (p.y > 600) { onLose(); return; }
+      if (p.y > 650) { 
+        s.active = false; 
+        onLose(); 
+        return; 
+      }
 
-      // Collision
       p.grounded = false;
-      for (const plat of state.platforms) {
-        if (p.x + p.w > plat.x && p.x < plat.x + plat.w &&
-            p.y + p.h + p.vy > plat.y && p.y + p.vy < plat.y + plat.h) {
-          
-          if (p.vy > 0 && p.y + p.h <= plat.y + 10) {
+      for (const plat of s.platforms) {
+        if (p.x + p.w > plat.x && p.x < plat.x + plat.w) {
+          if (p.vy > 0 && p.y + p.h <= plat.y + 12 && p.y + p.h + p.vy * dt >= plat.y) {
             p.y = plat.y - p.h;
             p.vy = 0;
             p.grounded = true;
@@ -112,133 +114,77 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
         }
       }
 
-      // Hazards
-      for (const h of state.hazards) {
-        h.x += h.vx; h.y += h.vy;
+      for (const h of s.hazards) {
+        h.x += h.vx * dt; h.y += h.vy * dt;
         if (h.x < 0 || h.x > 400) h.vx *= -1;
-        if (h.y < 0 || h.y > 600) h.vy *= -1;
+        if (h.y < -1000 || h.y > 600) h.vy *= -1;
         const dx = (p.x + p.w/2) - h.x;
         const dy = (p.y + p.h/2) - h.y;
-        if (Math.sqrt(dx*dx + dy*dy) < h.r + p.w/2) { onLose(); return; }
+        if (Math.sqrt(dx*dx + dy*dy) < h.r + p.w/2) { 
+          s.active = false; 
+          onLose(); 
+          return; 
+        }
       }
 
-      // Particles update
-      state.particles = state.particles.filter(pt => {
-        pt.life -= 0.04;
-        pt.y += 0.3;
-        return pt.life > 0;
-      });
-
-      // Goal
-      if (p.x < state.goal.x + state.goal.w && p.x + p.w > state.goal.x &&
-          p.y < state.goal.y + state.goal.h && p.y + p.h > state.goal.y) {
-        onWin(); return;
+      if (p.x < s.goal.x + s.goal.w && p.x + p.w > s.goal.x && p.y < s.goal.y + s.goal.h && p.y + p.h > s.goal.y) {
+        s.active = false; 
+        onWin(); 
+        return;
       }
 
-      // Render
-      ctx.clearRect(0, 0, 400, 600);
-      ctx.fillStyle = '#050510';
+      s.cameraY += (Math.max(0, 300 - p.y) - s.cameraY) * 0.1 * dt;
+
+      // Draw
+      ctx.fillStyle = '#020210';
       ctx.fillRect(0, 0, 400, 600);
+      ctx.save();
+      ctx.translate(0, s.cameraY);
 
-      // Grid Lines
-      ctx.strokeStyle = '#00f3ff08';
-      ctx.beginPath();
-      for(let i=0; i<400; i+=40) { ctx.moveTo(i, 0); ctx.lineTo(i, 600); }
-      for(let i=0; i<600; i+=40) { ctx.moveTo(0, i); ctx.lineTo(400, i); }
-      ctx.stroke();
-
-      // Platforms
-      ctx.fillStyle = '#00f3ff';
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.shadowColor = '#00f3ff';
-      for (const plat of state.platforms) {
-        ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
-      }
-      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#00f3ff';
+      s.platforms.forEach(plat => ctx.fillRect(plat.x, plat.y, plat.w, plat.h));
 
-      // Hazards
-      ctx.fillStyle = '#ff003c';
-      for (const h of state.hazards) {
-        ctx.beginPath();
-        ctx.arc(h.x, h.y, h.r, 0, Math.PI*2);
-        ctx.fill();
-      }
-
-      // Particles
-      for (const pt of state.particles) {
-         ctx.globalAlpha = pt.life;
-         ctx.fillStyle = pt.color;
-         ctx.beginPath();
-         ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI*2);
-         ctx.fill();
-      }
-      ctx.globalAlpha = 1.0;
-
-      // Goal
-      ctx.fillStyle = '#39ff14';
-      ctx.shadowBlur = 20;
       ctx.shadowColor = '#39ff14';
-      ctx.fillRect(state.goal.x, state.goal.y, state.goal.w, state.goal.h);
-      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#39ff14';
+      ctx.fillRect(s.goal.x, s.goal.y, s.goal.w, s.goal.h);
 
-      // Player
-      ctx.fillStyle = p.color;
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = p.color;
+      ctx.shadowColor = '#ff003c';
+      ctx.fillStyle = '#ff003c';
+      s.hazards.forEach(h => { ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, Math.PI*2); ctx.fill(); });
+
+      ctx.shadowColor = '#bc13fe';
+      ctx.fillStyle = '#bc13fe';
       ctx.fillRect(p.x, p.y, p.w, p.h);
-      ctx.shadowBlur = 0;
+      ctx.restore();
 
-      requestRef.current = requestAnimationFrame(update);
+      requestRef.current = requestAnimationFrame(loop);
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const k = e.key.toLowerCase();
-      if (k === 'arrowleft' || k === 'a') state.keys.left = true;
-      if (k === 'arrowright' || k === 'd') state.keys.right = true;
-      if (k === 'arrowup' || k === 'w' || k === ' ') state.keys.up = true;
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const k = e.key.toLowerCase();
-      if (k === 'arrowleft' || k === 'a') state.keys.left = false;
-      if (k === 'arrowright' || k === 'd') state.keys.right = false;
-      if (k === 'arrowup' || k === 'w' || k === ' ') state.keys.up = false;
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    requestRef.current = requestAnimationFrame(update);
-
+    requestRef.current = requestAnimationFrame(loop);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      isMounted.current = false;
+      cancelAnimationFrame(requestRef.current);
     };
   }, [level, onWin, onLose]);
 
+  const setK = (k: keyof typeof state.current.keys, v: boolean) => (e: any) => {
+    e.preventDefault();
+    state.current.keys[k] = v;
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center p-4 w-full h-full bg-black/40">
-      <div className="relative p-2 bg-black border-2 border-cyan-500/30 rounded-xl mb-6">
-        <canvas ref={canvasRef} width={400} height={600} className="w-full max-w-[320px] rounded-lg shadow-[0_0_20px_rgba(0,243,255,0.1)]" />
+    <div className="flex flex-col items-center justify-between h-full w-full bg-black/80 p-4 select-none touch-none">
+      <div className="relative w-full aspect-[2/3] max-h-[60vh] bg-black rounded-lg border-2 border-purple-500/30 overflow-hidden shadow-[0_0_20px_#bc13fe33]">
+        <canvas ref={canvasRef} width={400} height={600} className="w-full h-full object-contain" />
       </div>
-      
-      <div className="flex gap-4 w-full max-w-[320px]">
-        <div className="flex flex-1 gap-2">
-           <button 
-             onPointerDown={() => gameState.current.keys.left = true}
-             onPointerUp={() => gameState.current.keys.left = false}
-             className="flex-1 py-4 bg-black/60 border border-cyan-500/50 text-white rounded-xl active:scale-95 transition-all cyber-font text-xs"
-           >L</button>
-           <button 
-             onPointerDown={() => gameState.current.keys.right = true}
-             onPointerUp={() => gameState.current.keys.right = false}
-             className="flex-1 py-4 bg-black/60 border border-cyan-500/50 text-white rounded-xl active:scale-95 transition-all cyber-font text-xs"
-           >R</button>
+      <div className="w-full max-w-[400px] grid grid-cols-2 gap-4 mt-4">
+        <div className="grid grid-cols-2 gap-2">
+          <button onPointerDown={setK('left', true)} onPointerUp={setK('left', false)} onPointerLeave={setK('left', false)} onTouchStart={setK('left', true)} onTouchEnd={setK('left', false)} className="h-16 bg-black/60 border-2 border-purple-500 text-purple-400 rounded-xl flex items-center justify-center text-3xl active:bg-purple-500 active:text-white transition-all">◀</button>
+          <button onPointerDown={setK('right', true)} onPointerUp={setK('right', false)} onPointerLeave={setK('right', false)} onTouchStart={setK('right', true)} onTouchEnd={setK('right', false)} className="h-16 bg-black/60 border-2 border-purple-500 text-purple-400 rounded-xl flex items-center justify-center text-3xl active:bg-purple-500 active:text-white transition-all">▶</button>
         </div>
-        <button 
-          onPointerDown={() => gameState.current.keys.up = true}
-          onPointerUp={() => gameState.current.keys.up = false}
-          className="flex-1 py-4 bg-purple-600 border border-purple-400 text-white font-black rounded-xl active:scale-95 transition-all cyber-font text-xs shadow-[0_0_15px_rgba(188,19,254,0.4)]"
-        >JUMP</button>
+        <button onPointerDown={setK('up', true)} onPointerUp={setK('up', false)} onPointerLeave={setK('up', false)} onTouchStart={setK('up', true)} onTouchEnd={setK('up', false)} className="h-16 bg-purple-600 border-2 border-white/50 text-white font-black cyber-font text-lg rounded-xl flex items-center justify-center active:scale-95 shadow-[0_0_20px_#bc13fe]">JUMP</button>
       </div>
     </div>
   );
