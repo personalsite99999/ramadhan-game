@@ -4,33 +4,38 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="https://josanvin.github.io/josanvin/img/LogoGames2.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>RAMADHAN GAMES - Ngabuburit Seru Gaya Cyberpunk! 🌙🎮</title>
+    <meta name="theme-color" content="#000000" />
     
-    <!-- SEO & Link Preview (Open Graph) -->
+    <!-- SEO & Social Media Preview (Open Graph) -->
+    <title>RAMADHAN GAMES - Ngabuburit Seru Gaya Cyberpunk! 🌙🎮</title>
     <meta name="description" content="Ngabuburit makin seru! 🌙 Mainkan 5 game ketangkasan cyberpunk sambil nunggu waktu buka puasa. Pecahkan rekor di Hall of Fame!" />
-    <meta property="og:title" content="RAMADHAN GAMES - Ngabuburit Seru Gaya Cyberpunk! 🌙🎮" />
-    <meta property="og:description" content="Isi waktu luangmu sebelum berbuka dengan 5 mini-game seru! Jadilah legenda di Hall of Fame Ramadhan Games." />
+    
+    <meta property="og:type" content="website" />
     <meta property="og:url" content="https://ramadhan-games.vercel.app" />
     <meta property="og:site_name" content="Ramadhan Games" />
-    <meta property="og:type" content="website" />
+    <meta property="og:title" content="RAMADHAN GAMES - Ngabuburit Seru Gaya Cyberpunk! 🌙🎮" />
+    <meta property="og:description" content="Isi waktu luangmu sebelum berbuka dengan 5 mini-game seru! Jadilah legenda di Hall of Fame Ramadhan Games." />
     
-    <!-- Image Preview Fix for WhatsApp & Social Media -->
-    <meta property="og:image" content="https://josanvin.github.io/josanvin/img/LogoGames2.png" />
-    <meta property="og:image:secure_url" content="https://josanvin.github.io/josanvin/img/LogoGames2.png" />
+    <!-- Image Preview Fix (Force Refresh with v=3) -->
+    <meta property="og:image" content="https://josanvin.github.io/josanvin/img/LogoGames2.png?v=3" />
+    <meta property="og:image:secure_url" content="https://josanvin.github.io/josanvin/img/LogoGames2.png?v=3" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta itemprop="image" content="https://josanvin.github.io/josanvin/img/LogoGames2.png" />
+    <meta itemprop="image" content="https://josanvin.github.io/josanvin/img/LogoGames2.png?v=3" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="RAMADHAN GAMES - Ngabuburit Seru Gaya Cyberpunk! 🌙🎮" />
     <meta name="twitter:description" content="Mainkan 5 game ketangkasan sambil nunggu waktu buka puasa. Pecahkan rekor di Hall of Fame!" />
-    <meta name="twitter:image" content="https://josanvin.github.io/josanvin/img/LogoGames2.png" />
+    <meta name="twitter:image" content="https://josanvin.github.io/josanvin/img/LogoGames2.png?v=3" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
       body {
         margin: 0;
@@ -120,6 +125,8 @@
       .pulse-button {
         animation: pulse-glow 2s ease-in-out infinite;
       }
+      ::-webkit-scrollbar { display: none; }
+      body { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
   <script type="importmap">
 {
@@ -132,7 +139,7 @@
 }
 </script>
 </head>
-  <body>
+  <body class="text-gray-200 antialiased overflow-x-hidden selection:bg-cyan-500 selection:text-black">
     <div id="root"></div>
     <div class="scanlines"></div>
     <script type="module" src="/index.tsx"></script>
