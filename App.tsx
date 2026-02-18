@@ -32,20 +32,23 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#050505] text-[#00f3ff] flex flex-col items-center overflow-hidden">
-      {!activeGame ? (
-        <Dashboard 
-          progress={progress} 
-          onSelectGame={(game) => setActiveGame(game)} 
-        />
-      ) : (
-        <GameContainer 
-          gameType={activeGame} 
-          currentLevel={progress[activeGame]}
-          onExit={() => setActiveGame(null)}
-          onLevelUp={(level) => saveProgress(activeGame, level)}
-        />
-      )}
+    <div className="fixed inset-0 bg-[#000] flex justify-center items-center overflow-hidden">
+      {/* Mobile-proportioned container (Android View) */}
+      <div className="relative w-full h-full max-w-[480px] bg-[#050505] text-[#00f3ff] shadow-[0_0_50px_rgba(0,243,255,0.1)] flex flex-col overflow-hidden">
+        {!activeGame ? (
+          <Dashboard 
+            progress={progress} 
+            onSelectGame={(game) => setActiveGame(game)} 
+          />
+        ) : (
+          <GameContainer 
+            gameType={activeGame} 
+            currentLevel={progress[activeGame]}
+            onExit={() => setActiveGame(null)}
+            onLevelUp={(level) => saveProgress(activeGame, level)}
+          />
+        )}
+      </div>
     </div>
   );
 };

@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
-import { GameType, GameState } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { GameType, GameState, LeaderboardEntry, GlobalLeaderboard } from '../types';
 import MazeGame from '../games/MazeGame';
 import MemoryMatch from '../games/MemoryMatch';
 import MathQuiz from '../games/MathQuiz';
 import PlatformerGame from '../games/PlatformerGame';
 import SnakeGame from '../games/SnakeGame';
-import { ArrowLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ChevronRight, RotateCcw, Timer, Save } from 'lucide-react';
 
 interface GameContainerProps {
   gameType: GameType;
@@ -18,8 +18,43 @@ interface GameContainerProps {
 const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, onExit, onLevelUp }) => {
   const [level, setLevel] = useState(currentLevel);
   const [gameState, setGameState] = useState<GameState>('PLAYING');
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [playerName, setPlayerName] = useState('');
+  const timerRef = useRef<number | null>(null);
+  const startTime = useRef<number>(0);
+
+  useEffect(() => {
+    if (gameState === 'PLAYING') {
+      startTime.current = Date.now();
+      timerRef.current = window.setInterval(() => {
+        setElapsedTime(Date.now() - startTime.current);
+      }, 10);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [gameState]);
 
   const handleWin = () => {
+    setGameState('RECORD_NAME');
+  };
+
+  const saveRecord = () => {
+    if (!playerName.trim()) return;
+    
+    const leaderboard: GlobalLeaderboard = JSON.parse(localStorage.getItem('ramadhan_leaderboard') || '{}');
+    if (!leaderboard[gameType]) leaderboard[gameType] = [];
+    
+    const newEntry: LeaderboardEntry = {
+      name: playerName.trim(),
+      time: elapsedTime,
+      level: level,
+      date: new Date().toISOString()
+    };
+    
+    leaderboard[gameType].push(newEntry);
+    localStorage.setItem('ramadhan_leaderboard', JSON.stringify(leaderboard));
+    
     if (level < 30) {
       setGameState('LEVEL_UP');
     } else {
@@ -35,10 +70,12 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
     const next = Math.min(30, level + 1);
     setLevel(next);
     onLevelUp(next);
+    setElapsedTime(0);
     setGameState('PLAYING');
   };
 
   const retryLevel = () => {
+    setElapsedTime(0);
     setGameState('PLAYING');
   };
 
@@ -54,7 +91,7 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
   };
 
   return (
-    <div className="relative w-full h-screen flex flex-col bg-black overflow-hidden">
+    <div className="relative w-full h-full flex flex-col bg-black overflow-hidden">
       {/* HUD Header */}
       <div className="p-4 flex justify-between items-center border-b border-[#00f3ff]/30 bg-black/80 z-20">
         <button onClick={onExit} className="p-2 hover:bg-[#00f3ff]/20 rounded transition-colors">
@@ -64,11 +101,46 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
           <div className="text-[10px] opacity-60">MISSION_TARGET</div>
           <div className="cyber-font text-xl neon-glow-cyan">LEVEL {level}</div>
         </div>
-        <div className="w-10" />
+        <div className="flex flex-col items-end">
+          <div className="text-[10px] opacity-60 flex items-center gap-1"><Timer size={10}/> RUNTIME</div>
+          <div className="cyber-font text-xs text-[#39ff14]">{(elapsedTime / 1000).toFixed(2)}s</div>
+        </div>
       </div>
 
       <div className="flex-1 relative">
         {gameState === 'PLAYING' && renderGame()}
+
+        {/* Record Name Overlay */}
+        {gameState === 'RECORD_NAME' && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl p-6">
+            <h2 className="cyber-font text-3xl mb-2 text-[#facc15] neon-glow-cyan">NEW RECORD!</h2>
+            <div className="text-center mb-6">
+              <p className="text-xs opacity-60 uppercase mb-1">Clear Time</p>
+              <p className="text-4xl cyber-font text-[#39ff14]">{(elapsedTime / 1000).toFixed(2)}s</p>
+            </div>
+            
+            <div className="w-full max-w-xs space-y-4">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  maxLength={12}
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  placeholder="INPUT_ID_TAG"
+                  className="w-full bg-black/50 border border-cyan-500/50 p-4 cyber-font text-center text-white focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                />
+                <div className="absolute -bottom-1 -right-1 w-3 h-3 border-r border-b border-cyan-500" />
+                <div className="absolute -top-1 -left-1 w-3 h-3 border-l border-t border-cyan-500" />
+              </div>
+              <button 
+                onClick={saveRecord}
+                className="w-full py-4 bg-cyan-600 text-white font-bold cyber-font flex items-center justify-center gap-2 hover:bg-cyan-500 active:scale-95 transition-all"
+              >
+                <Save size={18} /> UPLOAD SCORE
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Level Up Overlay */}
         {gameState === 'LEVEL_UP' && (
@@ -107,7 +179,6 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
         )}
       </div>
 
-      {/* Grid Pattern Background */}
       <div className="absolute inset-0 opacity-10 pointer-events-none" 
            style={{ backgroundImage: 'linear-gradient(#00f3ff 1px, transparent 1px), linear-gradient(90deg, #00f3ff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
     </div>
