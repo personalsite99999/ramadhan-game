@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { GameType, UserProgress, GlobalLeaderboard, LeaderboardEntry } from '../types';
-import { LayoutGrid, Brain, Binary, Rocket, MoveHorizontal, MessageCircle, Trophy, X, Crown } from 'lucide-react';
+import { LayoutGrid, Brain, Binary, Rocket, MoveHorizontal, MessageCircle, Trophy, X, Crown, Users } from 'lucide-react';
 
 interface DashboardProps {
   progress: UserProgress;
@@ -40,9 +41,6 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
     setShowLeaderboard(true);
   };
 
-  const waMessage = encodeURIComponent("Ayo main Ramadhan Games seru di: https://ramadhan-games.vercel.app 🌙🎮");
-  const waUrl = `https://wa.me/6281341300100?text=${waMessage}`;
-
   return (
     <div className="flex-1 flex flex-col relative overflow-y-auto overflow-x-hidden no-scrollbar bg-[#000033]">
       <style dangerouslySetInnerHTML={{ __html: `
@@ -56,7 +54,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
       {/* Floating Buttons */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-3">
         <a 
-          href={waUrl} 
+          href="https://wa.me/6281341300100" 
           target="_blank" 
           rel="noopener noreferrer"
           className="p-3 bg-[#25D366] text-white rounded-full shadow-[0_0_20px_#25D366] flex items-center justify-center animate-bounce hover:scale-110 transition-transform"
@@ -74,21 +72,19 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
 
       <div className="p-6 pb-20">
         <div className="text-center mb-6 pt-4">
-          {/* Header Title with Enlarged Logo on Left and Centered Text */}
-          <div className="relative flex items-center justify-center mb-2 min-h-[80px]">
+          <div className="flex items-center justify-center gap-3 mb-2">
             <img 
-              src="https://josanvin.github.io/josanvin/img/LogoGames2.png" 
+              src="https://josanvin.github.io/josanvin/img/LogoGames.png" 
               alt="Logo Games" 
-              className="absolute left-3 h-[70px] w-auto bg-transparent filter drop-shadow-[0_0_15px_#00f3ff]"
-              style={{ objectFit: 'contain' }}
+              className="h-10 w-auto filter drop-shadow-[0_0_8px_#00f3ff]"
             />
-            <h1 className="cyber-font text-4xl font-black tracking-tighter neon-glow-cyan leading-none text-center z-10">RAMADHAN</h1>
+            <h1 className="cyber-font text-4xl font-black tracking-tighter neon-glow-cyan">RAMADHAN</h1>
           </div>
           <h2 className="cyber-font text-2xl font-bold neon-glow-purple tracking-widest uppercase">Games</h2>
           
           <div className="w-full overflow-hidden bg-black/40 border-y border-[#facc15]/30 py-2 mt-4 backdrop-blur-sm">
             <div className="animate-marquee whitespace-nowrap text-[#facc15] cyber-font text-[10px] tracking-widest uppercase font-bold">
-              SIAPKAN DIRIMU UNTUK BERBUKA PUASA DENGAN GAME SERU! --- JADILAH LEGENDA DI HALL OF FAME --- NGABUBURIT MAKIN SERU BERSAMA RAMADHAN GAMES --- DONASI : 0813-41-300-100 ---
+              SIAPKAN DIRIMU UNTUK BERBUKA PUASA DENGAN GAME SERU! --- DONASI : 0813-41-300-100 --- HUBUNGI VIA WHATSAPP : 0813-41-300-100 ---
             </div>
           </div>
           
@@ -132,7 +128,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
 
         <div className="mt-10 p-6 bg-black/60 border border-[#00f3ff]/20 rounded-lg text-center backdrop-blur-md">
           <p className="text-[10px] text-[#facc15] mb-2 cyber-font font-black uppercase tracking-widest">
-            Sambil Nunggu Buka, Yuk Main Game! 🌙
+            Sambil Nunggu Buka, Yuk Main Game!
           </p>
           <p className="text-sm text-[#00f3ff] mb-2 cyber-font font-bold">
             SYSTEM_OPERATOR: <a href="https://wa.me/6281341300100" className="underline hover:neon-glow-cyan transition-all font-black tracking-widest">0813-41-300-100</a>
@@ -146,15 +142,12 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
         </span>
       </div>
 
-      {/* Leaderboard Modal (Hall of Fame) */}
+      {/* Leaderboard Modal */}
       {showLeaderboard && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col p-6 animate-in fade-in duration-300">
-          <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
-            <div className="flex items-center gap-3">
-              <Trophy className="text-[#facc15]" />
-              <h2 className="cyber-font text-2xl neon-glow-cyan font-bold uppercase italic">HALL OF FAME</h2>
-            </div>
-            <button onClick={() => setShowLeaderboard(false)} className="p-3 bg-red-500/10 border-2 border-red-500 text-red-500 rounded-full hover:bg-red-500/20 transition-all active:scale-90"><X size={24}/></button>
+        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col p-6 animate-in fade-in">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="cyber-font text-2xl neon-glow-cyan flex items-center gap-2 font-bold"><Trophy /> HALL OF FAME</h2>
+            <button onClick={() => setShowLeaderboard(false)} className="p-2 border-2 border-red-500 text-red-500 rounded-full hover:bg-red-500/20 transition-colors"><X size={24}/></button>
           </div>
           
           <div className="flex-1 overflow-y-auto no-scrollbar space-y-6">
@@ -162,39 +155,21 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
               const records = getTopRecords(game.type);
               return (
                 <div key={game.type} className={`border border-${game.color}-500/20 p-4 rounded bg-black/40 neon-border-${game.color}`}>
-                  <div className="flex justify-between items-center mb-3 border-b border-white/10 pb-1">
-                    <h3 className={`cyber-font text-sm neon-glow-${game.color} uppercase font-bold`}>{game.label}</h3>
-                    <span className="text-[8px] opacity-30 font-bold uppercase tracking-widest">Global Top 5</span>
-                  </div>
+                  <h3 className={`cyber-font text-sm neon-glow-${game.color} mb-3 border-b border-white/10 pb-1 uppercase font-bold`}>{game.label} RECORDS</h3>
                   {records.length === 0 ? (
-                    <p className="text-[10px] opacity-40 italic py-2">NO DATA PACKETS DETECTED...</p>
+                    <p className="text-[10px] opacity-40 italic">NO DATA PACKETS DETECTED...</p>
                   ) : (
                     <div className="space-y-2">
                       {records.map((entry, idx) => (
-                        <div key={idx} className={`flex justify-between items-center p-2 rounded ${idx === 0 ? 'bg-white/5 border border-white/10' : ''}`}>
-                          <div className="flex items-center gap-3">
-                            <span className={`cyber-font text-lg font-black w-6 text-center ${idx === 0 ? 'text-[#facc15]' : 'opacity-20 text-white'}`}>
-                              {idx + 1}
-                            </span>
-                            <div>
-                              <div className={`text-xs font-black uppercase tracking-tight ${idx === 0 ? 'text-[#facc15] italic' : 'text-white'}`}>
-                                {entry.name} {idx === 0 && <Crown size={12} className="inline ml-1" />}
-                              </div>
-                              <div className="text-[8px] opacity-30 cyber-font">
-                                {new Date(entry.date).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 text-right">
-                            <div className="flex flex-col">
-                              <span className="text-[7px] opacity-40 uppercase font-black">Level</span>
-                              <span className={`text-[11px] font-black ${idx === 0 ? 'text-[#facc15]' : `text-${game.color}-400`}`}>LV.{entry.level}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[7px] opacity-40 uppercase font-black">Time</span>
-                              <span className="text-[#39ff14] text-[11px] font-black">{(entry.time / 1000).toFixed(2)}s</span>
-                            </div>
-                          </div>
+                        <div key={idx} className={`flex justify-between items-center text-xs border-b border-white/5 pb-1 ${idx === 0 ? 'text-[#facc15]' : 'text-white'}`}>
+                          <span className="flex items-center gap-2">
+                            <span className="opacity-40">{idx + 1}.</span>
+                            <span className="font-black uppercase">{entry.name} {idx === 0 && <Crown size={10} className="inline ml-1" />}</span>
+                          </span>
+                          <span className="flex items-center gap-3 font-bold">
+                            <span className={idx === 0 ? 'text-[#facc15]' : `text-${game.color}-400`}>LV {entry.level}</span>
+                            <span className="text-[#39ff14]">{(entry.time / 1000).toFixed(2)}s</span>
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -204,9 +179,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
             })}
           </div>
           <div className="mt-4 pt-4 border-t border-white/10 text-center">
-            <p className="text-[10px] text-[#facc15]/50 cyber-font uppercase tracking-[0.3em] font-black">
-              Hanya Peringkat 5 Besar Yang Berhak Tampil
-            </p>
+            <p className="text-[9px] opacity-30 cyber-font uppercase tracking-[0.2em]">Hanya 5 skor tertinggi yang ditampilkan</p>
           </div>
         </div>
       )}

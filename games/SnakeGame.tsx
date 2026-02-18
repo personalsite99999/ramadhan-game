@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 interface SnakeGameProps {
   level: number;
@@ -8,191 +9,149 @@ interface SnakeGameProps {
 
 const SnakeGame: React.FC<SnakeGameProps> = ({ level, onWin, onLose }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [displayScore, setDisplayScore] = useState(0);
-  const isMounted = useRef(true);
-  
-  const targetScore = 5 + Math.floor(level / 2);
+  const [score, setScore] = useState(0);
+  const targetScore = 5 + level;
   const gridSize = 20;
 
-  const state = useRef({
-    snake: [{ x: 10, y: 10 }, { x: 10, y: 11 }, { x: 10, y: 12 }],
-    dir: { x: 0, y: -1 },
-    nextDir: { x: 0, y: -1 },
-    food: { x: 5, y: 5 },
-    obstacles: [] as { x: number, y: number }[],
-    active: true,
-    score: 0
-  });
+  const handleGameEnd = useCallback((isWin: boolean) => {
+    if (isWin) onWin();
+    else onLose();
+  }, [onWin, onLose]);
 
   useEffect(() => {
-    isMounted.current = true;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const s = state.current;
-    s.active = true;
-    s.score = 0;
-    s.snake = [{ x: 10, y: 10 }, { x: 10, y: 11 }, { x: 10, y: 12 }];
-    s.dir = { x: 0, y: -1 };
-    s.nextDir = { x: 0, y: -1 };
-    s.obstacles = [];
-    setDisplayScore(0);
+    let snake = [{ x: 10, y: 10 }];
+    let dir = { x: 0, y: -1 };
+    let food = { x: 15, y: 15 };
+    let obstacles: { x: number, y: number }[] = [];
     
-    // Speed formula: faster as level increases
-    const speed = Math.max(60, 180 - (level * 6));
-    
-    // Generate Obstacles
-    if (level > 4) {
-      const obstacleCount = Math.floor(level / 2.5);
-      for(let i=0; i < obstacleCount; i++) {
-        let ox, oy;
-        do {
-          ox = Math.floor(Math.random() * gridSize);
-          oy = Math.floor(Math.random() * gridSize);
-        } while (
-          (ox === 10 && oy >= 8 && oy <= 14) || // Player start safety
-          (ox === 5 && oy === 5) || // Initial food safety
-          s.obstacles.some(o => o.x === ox && o.y === oy)
-        );
-        s.obstacles.push({ x: ox, y: oy });
+    // Add obstacles for higher levels
+    if (level > 3) {
+      const obstacleCount = Math.floor(level / 2);
+      for (let i = 0; i < obstacleCount; i++) {
+        obstacles.push({
+          x: Math.floor(Math.random() * gridSize),
+          y: Math.floor(Math.random() * gridSize)
+        });
       }
     }
 
-    let lastTick = 0;
-    let animId: number;
+    let localScore = 0;
+    const gameSpeed = Math.max(50, 150 - (level * 3));
 
     const move = () => {
-      s.dir = s.nextDir;
-      const head = { x: s.snake[0].x + s.dir.x, y: s.snake[0].y + s.dir.y };
+      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
       
-      // Warp logic for high levels
+      // Wrapping glitch (Level 15+)
       if (level >= 15) {
         if (head.x < 0) head.x = gridSize - 1;
         if (head.x >= gridSize) head.x = 0;
         if (head.y < 0) head.y = gridSize - 1;
         if (head.y >= gridSize) head.y = 0;
-      } else if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize) {
-        s.active = false;
-        onLose();
-        return;
-      }
-
-      // Self or Obstacle collision
-      if (s.snake.some(seg => seg.x === head.x && seg.y === head.y) || 
-          s.obstacles.some(o => o.x === head.x && o.y === head.y)) {
-        s.active = false;
-        onLose();
-        return;
-      }
-
-      s.snake.unshift(head);
-
-      // Food collision
-      if (head.x === s.food.x && head.y === s.food.y) {
-        s.score++;
-        setDisplayScore(s.score);
-        
-        if (s.score >= targetScore) {
-          s.active = false;
-          onWin();
+      } else {
+        if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize) {
+          handleGameEnd(false);
           return;
         }
-
-        // Relocate food
-        do {
-          s.food = { x: Math.floor(Math.random() * gridSize), y: Math.floor(Math.random() * gridSize) };
-        } while (
-          s.snake.some(seg => seg.x === s.food.x && seg.y === s.food.y) || 
-          s.obstacles.some(o => o.x === s.food.x && o.y === s.food.y)
-        );
-      } else {
-        s.snake.pop();
       }
+
+      // Check collision
+      if (snake.some(s => s.x === head.x && s.y === head.y)) {
+        handleGameEnd(false);
+        return;
+      }
+      if (obstacles.some(o => o.x === head.x && o.y === head.y)) {
+        handleGameEnd(false);
+        return;
+      }
+
+      snake.unshift(head);
+      if (head.x === food.x && head.y === food.y) {
+        localScore++;
+        setScore(localScore);
+        if (localScore >= targetScore) {
+          handleGameEnd(true);
+          return;
+        }
+        food = {
+          x: Math.floor(Math.random() * gridSize),
+          y: Math.floor(Math.random() * gridSize)
+        };
+      } else {
+        snake.pop();
+      }
+
+      draw();
     };
 
-    const draw = (t: number) => {
-      if (!s.active || !isMounted.current) return;
+    const draw = () => {
+      ctx.fillStyle = '#050505';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      if (t - lastTick > speed) {
-        move();
-        lastTick = t;
-      }
+      const cellSize = canvas.width / gridSize;
 
-      if (!s.active) return; // Re-check after move
-
-      ctx.fillStyle = '#020210';
-      ctx.fillRect(0, 0, 300, 300);
-      const cell = 300 / gridSize;
-      
       // Obstacles
-      ctx.fillStyle = '#444455';
-      s.obstacles.forEach(o => ctx.fillRect(o.x * cell + 1, o.y * cell + 1, cell - 2, cell - 2));
+      ctx.fillStyle = '#333';
+      obstacles.forEach(o => ctx.fillRect(o.x * cellSize, o.y * cellSize, cellSize, cellSize));
 
       // Food
       ctx.fillStyle = '#39ff14';
       ctx.shadowBlur = 10;
       ctx.shadowColor = '#39ff14';
-      ctx.beginPath();
-      ctx.arc(s.food.x * cell + cell/2, s.food.y * cell + cell/2, cell/2 - 3, 0, Math.PI*2);
-      ctx.fill();
+      ctx.fillRect(food.x * cellSize + 2, food.y * cellSize + 2, cellSize - 4, cellSize - 4);
 
       // Snake
-      ctx.shadowBlur = 0;
-      s.snake.forEach((seg, i) => {
-        ctx.fillStyle = i === 0 ? '#bc13fe' : `rgba(188, 19, 254, ${1 - (i / s.snake.length) * 0.7})`;
-        ctx.fillRect(seg.x * cell + 1, seg.y * cell + 1, cell - 2, cell - 2);
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#bc13fe';
+      snake.forEach((s, i) => {
+        ctx.fillStyle = i === 0 ? '#bc13fe' : '#9000cc';
+        ctx.fillRect(s.x * cellSize + 1, s.y * cellSize + 1, cellSize - 2, cellSize - 2);
       });
-
-      animId = requestAnimationFrame(draw);
+      ctx.shadowBlur = 0;
     };
 
-    animId = requestAnimationFrame(draw);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === 'ArrowUp' || e.key === 'w') && dir.y === 0) dir = { x: 0, y: -1 };
+      else if ((e.key === 'ArrowDown' || e.key === 's') && dir.y === 0) dir = { x: 0, y: 1 };
+      else if ((e.key === 'ArrowLeft' || e.key === 'a') && dir.x === 0) dir = { x: -1, y: 0 };
+      else if ((e.key === 'ArrowRight' || e.key === 'd') && dir.x === 0) dir = { x: 1, y: 0 };
+    };
+
+    const interval = setInterval(move, gameSpeed);
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
-      isMounted.current = false;
-      s.active = false;
-      cancelAnimationFrame(animId);
+      clearInterval(interval);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [level, targetScore, onWin, onLose]);
-
-  const setDir = (x: number, y: number) => {
-    const s = state.current;
-    if (!s.active) return;
-    // Prevent 180-degree turns
-    if (x !== 0 && s.dir.x === 0) s.nextDir = { x, y: 0 };
-    if (y !== 0 && s.dir.y === 0) s.nextDir = { x: 0, y };
-  };
+  }, [level, targetScore, handleGameEnd]);
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 h-full w-full bg-black/40 select-none touch-none">
-      <div className="mb-4 flex gap-8">
-        <div className="text-center">
-          <p className="text-[10px] cyber-font text-purple-400 uppercase opacity-50 tracking-widest">Score</p>
-          <p className="text-xl cyber-font font-black text-white">{displayScore}/{targetScore}</p>
-        </div>
-        <div className="text-center">
-          <p className="text-[10px] cyber-font text-purple-400 uppercase opacity-50 tracking-widest">Mode</p>
-          <p className="text-xs cyber-font font-bold text-[#39ff14] animate-pulse">{level >= 15 ? 'WARP_ON' : 'WALLS_ON'}</p>
-        </div>
-      </div>
-
-      <div className="relative p-1 bg-black border-2 border-purple-500/30 rounded-xl mb-6 shadow-[0_0_20px_#bc13fe33]">
-        <canvas ref={canvasRef} width={300} height={300} className="rounded-lg" />
-        <div className="absolute inset-0 pointer-events-none opacity-5 bg-[radial-gradient(#bc13fe_1px,transparent_1px)] [background-size:10px_10px]" />
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 w-full max-w-[200px]">
-        <div /> 
-        <button onPointerDown={() => setDir(0, -1)} className="aspect-square bg-black/60 border border-purple-500 rounded-xl text-purple-400 text-xl flex items-center justify-center active:bg-purple-500 active:text-white transition-all shadow-lg active:scale-95">▲</button> 
-        <div />
-        
-        <button onPointerDown={() => setDir(-1, 0)} className="aspect-square bg-black/60 border border-purple-500 rounded-xl text-purple-400 text-xl flex items-center justify-center active:bg-purple-500 active:text-white transition-all shadow-lg active:scale-95">◀</button>
-        <button onPointerDown={() => setDir(0, 1)} className="aspect-square bg-black/60 border border-purple-500 rounded-xl text-purple-400 text-xl flex items-center justify-center active:bg-purple-500 active:text-white transition-all shadow-lg active:scale-95">▼</button>
-        <button onPointerDown={() => setDir(1, 0)} className="aspect-square bg-black/60 border border-purple-500 rounded-xl text-purple-400 text-xl flex items-center justify-center active:bg-purple-500 active:text-white transition-all shadow-lg active:scale-95">▶</button>
+    <div className="flex flex-col items-center justify-center p-4 h-full w-full">
+      <div className="mb-4 text-center">
+        <div className="text-[10px] opacity-40">PACKETS COLLECTED</div>
+        <div className="cyber-font text-2xl text-[#39ff14] neon-glow-purple">{score} / {targetScore}</div>
       </div>
       
-      <div className="mt-4 text-[8px] cyber-font text-white/30 tracking-[0.2em] uppercase">Security Level: {level <= 10 ? 'LOW' : level <= 20 ? 'MEDIUM' : 'CRITICAL'}</div>
+      <canvas 
+        ref={canvasRef} 
+        width={350} 
+        height={350} 
+        className="neon-border-purple bg-black rounded"
+      />
+
+      <div className="mt-6 grid grid-cols-3 gap-2">
+        <div />
+        <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowUp'}))} className="p-4 bg-black/50 border border-purple-500 rounded active:scale-90">↑</button>
+        <div />
+        <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowLeft'}))} className="p-4 bg-black/50 border border-purple-500 rounded active:scale-90">←</button>
+        <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown'}))} className="p-4 bg-black/50 border border-purple-500 rounded active:scale-90">↓</button>
+        <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowRight'}))} className="p-4 bg-black/50 border border-purple-500 rounded active:scale-90">→</button>
+      </div>
     </div>
   );
 };
