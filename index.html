@@ -20,20 +20,18 @@
       .cyber-font {
         font-family: 'Orbitron', sans-serif;
       }
-      .neon-glow-cyan {
-        text-shadow: 0 0 10px #00f3ff, 0 0 20px #00f3ff;
-      }
-      .neon-border-cyan {
-        box-shadow: 0 0 10px #00f3ff, inset 0 0 5px #00f3ff;
-        border: 1px solid #00f3ff;
-      }
-      .neon-glow-purple {
-        text-shadow: 0 0 10px #bc13fe, 0 0 20px #bc13fe;
-      }
-      .neon-border-purple {
-        box-shadow: 0 0 10px #bc13fe, inset 0 0 5px #bc13fe;
-        border: 1px solid #bc13fe;
-      }
+      .neon-glow-cyan { text-shadow: 0 0 10px #00f3ff, 0 0 20px #00f3ff; }
+      .neon-glow-purple { text-shadow: 0 0 10px #bc13fe, 0 0 20px #bc13fe; }
+      .neon-glow-green { text-shadow: 0 0 10px #39ff14, 0 0 20px #39ff14; }
+      .neon-glow-orange { text-shadow: 0 0 10px #ff9100, 0 0 20px #ff9100; }
+      .neon-glow-pink { text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff; }
+
+      .neon-border-cyan { border: 1px solid #00f3ff; box-shadow: 0 0 10px #00f3ff, inset 0 0 5px #00f3ff; }
+      .neon-border-purple { border: 1px solid #bc13fe; box-shadow: 0 0 10px #bc13fe, inset 0 0 5px #bc13fe; }
+      .neon-border-green { border: 1px solid #39ff14; box-shadow: 0 0 10px #39ff14, inset 0 0 5px #39ff14; }
+      .neon-border-orange { border: 1px solid #ff9100; box-shadow: 0 0 10px #ff9100, inset 0 0 5px #ff9100; }
+      .neon-border-pink { border: 1px solid #ff00ff; box-shadow: 0 0 10px #ff00ff, inset 0 0 5px #ff00ff; }
+
       .scanlines {
         position: fixed;
         top: 0;
@@ -45,6 +43,32 @@
         pointer-events: none;
         z-index: 100;
       }
+
+      /* Moving border animation */
+      @keyframes border-scan {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+
+      .animated-border {
+        position: relative;
+        background: rgba(0, 0, 0, 0.6);
+        background-clip: padding-box;
+        border: 2px solid transparent;
+      }
+
+      .animated-border::before {
+        content: '';
+        position: absolute;
+        top: -2px; bottom: -2px; left: -2px; right: -2px;
+        z-index: -1;
+        border-radius: inherit;
+        background: linear-gradient(90deg, transparent, currentColor, transparent);
+        background-size: 200% 100%;
+        animation: border-scan 3s linear infinite;
+      }
+
       @keyframes glitch {
         0% { transform: translate(0); }
         20% { transform: translate(-2px, 2px); }
@@ -65,6 +89,14 @@
         display: inline-block;
         white-space: nowrap;
         animation: marquee 40s linear infinite;
+      }
+
+      @keyframes pulse-glow {
+        0%, 100% { opacity: 0.6; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.02); }
+      }
+      .pulse-button {
+        animation: pulse-glow 2s ease-in-out infinite;
       }
     </style>
   <script type="importmap">

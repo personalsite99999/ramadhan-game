@@ -33,8 +33,8 @@ const App: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-[#000] flex justify-center items-center overflow-hidden">
-      {/* Mobile-proportioned container (Android View) */}
-      <div className="relative w-full h-full max-w-[480px] bg-[#050505] text-[#00f3ff] shadow-[0_0_50px_rgba(0,243,255,0.1)] flex flex-col overflow-hidden">
+      {/* Mobile-proportioned container (Android View) - Background set to Navy Blue */}
+      <div className="relative w-full h-full max-w-[480px] bg-[#000033] text-[#00f3ff] shadow-[0_0_50px_rgba(0,243,255,0.1)] flex flex-col overflow-hidden">
         {!activeGame ? (
           <Dashboard 
             progress={progress} 
