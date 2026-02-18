@@ -41,9 +41,10 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
   };
 
   const shareToWhatsApp = () => {
-    // Correct URL as requested
+    // URL target
     const gameUrl = "https://ramadhan-games.vercel.app/";
-    const text = encodeURIComponent(`🌙 *RAMADHAN GAMES* - Ngabuburit Seru Sambil Pecahkan Rekor! 🎮✨\n\nMainkan 5 game ketangkasan dengan gaya cyberpunk. Tantang temanmu dan jadilah juara di Hall of Fame! Mantap bosku!\n\nMain sekarang di:\n${gameUrl}`);
+    // Pesan yang menarik sesuai contoh Bioskop21
+    const text = encodeURIComponent(`🌙 *RAMADHAN GAMES* - Sini Ngabuburit Sambil Main Game Mantap!\n\nMainkan 5 game ketangkasan premium dengan gaya cyberpunk. Jadilah legenda di Hall of Fame! Mantap bosku!\n\nCek di sini:\n${gameUrl}`);
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
