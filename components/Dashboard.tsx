@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
-import { GameType, UserProgress, GlobalLeaderboard } from '../types';
-import { LayoutGrid, Brain, Binary, Rocket, MoveHorizontal, MessageCircle, Trophy, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { GameType, UserProgress, GlobalLeaderboard, LeaderboardEntry } from '../types';
+import { LayoutGrid, Brain, Binary, Rocket, MoveHorizontal, MessageCircle, Trophy, X, Crown } from 'lucide-react';
 
 interface DashboardProps {
   progress: UserProgress;
@@ -12,6 +12,11 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState<GlobalLeaderboard | null>(null);
 
+  useEffect(() => {
+    const saved = localStorage.getItem('ramadhan_leaderboard');
+    if (saved) setLeaderboardData(JSON.parse(saved));
+  }, []);
+
   const games = [
     { type: GameType.MAZE, icon: <LayoutGrid />, label: 'NYARI JALAN', color: 'cyan', hex: '#00f3ff' },
     { type: GameType.MEMORY, icon: <Brain />, label: 'ADU MEMORI', color: 'purple', hex: '#bc13fe' },
@@ -19,6 +24,16 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
     { type: GameType.PLATFORMER, icon: <Rocket />, label: 'LOMPAT CUY', color: 'orange', hex: '#ff9100' },
     { type: GameType.SNAKE, icon: <MoveHorizontal />, label: 'PANJANGIN ULER', color: 'pink', hex: '#ff00ff' },
   ];
+
+  const getTopRecord = (type: GameType): LeaderboardEntry | null => {
+    if (!leaderboardData || !leaderboardData[type] || leaderboardData[type].length === 0) return null;
+    // Sort by Level (desc) then Time (asc)
+    const sorted = [...leaderboardData[type]].sort((a, b) => {
+      if (b.level !== a.level) return b.level - a.level;
+      return a.time - b.time;
+    });
+    return sorted[0];
+  };
 
   const openLeaderboard = () => {
     const saved = localStorage.getItem('ramadhan_leaderboard');
@@ -59,7 +74,6 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
           <h1 className="cyber-font text-4xl font-black tracking-tighter neon-glow-cyan mb-2">RAMADHAN</h1>
           <h2 className="cyber-font text-2xl font-bold neon-glow-purple tracking-widest uppercase">Games</h2>
           
-          {/* Marquee moved here below Ramadhan Games and changed to Yellow */}
           <div className="w-full overflow-hidden bg-black/40 border-y border-[#facc15]/30 py-2 mt-4 backdrop-blur-sm">
             <div className="animate-marquee whitespace-nowrap text-[#facc15] cyber-font text-[10px] tracking-widest uppercase font-bold">
               DONASI : 0813-41-300-100 (VIA SHOPEE - OVO - GOPAY - DANA) --- HUBUNGI VIA WHATSAPP : 0813-41-300-100 --- DONASI : 0813-41-300-100 (VIA SHOPEE - OVO - GOPAY - DANA) ---
@@ -70,40 +84,57 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
         </div>
 
         <div className="grid grid-cols-1 gap-6">
-          {games.map((game) => (
-            <button
-              key={game.type}
-              onClick={() => onSelectGame(game.type)}
-              style={{ color: game.hex }}
-              className={`
-                group relative p-5 bg-black/40 backdrop-blur-md flex items-center gap-5 
-                transition-all duration-300 transform hover:scale-105 active:scale-95
-                animated-border pulse-button
-                neon-border-${game.color}
-              `}
-            >
-              <div className={`p-3 rounded-lg bg-black/50 neon-border-${game.color} group-hover:scale-110 transition-transform`}>
-                {React.cloneElement(game.icon as React.ReactElement, { size: 36 })}
-              </div>
-              <div className="flex-1 text-left">
-                <span className={`block cyber-font text-2xl font-black tracking-tight group-hover:glitch-text neon-glow-${game.color} text-stroke-sm`}>
-                  {game.label}
-                </span>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="h-1.5 flex-1 bg-white/10 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-current transition-all duration-1000 shadow-[0_0_8px_currentColor]" 
-                      style={{ width: `${(progress[game.type] / 30) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-black opacity-100 drop-shadow-md">LV {progress[game.type]}/30</span>
+          {games.map((game) => {
+            const topRecord = getTopRecord(game.type);
+            return (
+              <button
+                key={game.type}
+                onClick={() => onSelectGame(game.type)}
+                style={{ color: game.hex }}
+                className={`
+                  group relative p-5 bg-black/40 backdrop-blur-md flex items-center gap-5 
+                  transition-all duration-300 transform hover:scale-105 active:scale-95
+                  animated-border pulse-button
+                  neon-border-${game.color}
+                `}
+              >
+                <div className={`p-3 rounded-lg bg-black/50 neon-border-${game.color} group-hover:scale-110 transition-transform relative`}>
+                  {React.cloneElement(game.icon as React.ReactElement, { size: 36 })}
+                  {topRecord && (
+                    <div className="absolute -top-2 -left-2 text-[#facc15] animate-pulse">
+                      <Crown size={20} fill="#facc15" />
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                <Rocket size={24} className="animate-pulse" />
-              </div>
-            </button>
-          ))}
+                <div className="flex-1 text-left">
+                  <span className={`block cyber-font text-2xl font-black tracking-tight group-hover:glitch-text neon-glow-${game.color} text-stroke-sm leading-none`}>
+                    {game.label}
+                  </span>
+                  
+                  {/* High Score Badge */}
+                  {topRecord ? (
+                    <div className="text-[9px] font-bold text-[#facc15] mt-1 flex items-center gap-1 uppercase tracking-tighter">
+                      <Trophy size={10} /> REKOR: {topRecord.name} ({topRecord.level} - {(topRecord.time / 1000).toFixed(1)}s)
+                    </div>
+                  ) : (
+                    <div className="text-[9px] font-bold text-white/30 mt-1 uppercase tracking-tighter">
+                      BELUM ADA REKOR
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="h-1.5 flex-1 bg-white/10 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-current transition-all duration-1000 shadow-[0_0_8px_currentColor]" 
+                        style={{ width: `${(progress[game.type] / 30) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-black opacity-100 drop-shadow-md">LV {progress[game.type]}/30</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         <div className="mt-10 p-6 bg-black/60 border border-[#00f3ff]/20 rounded-lg text-center backdrop-blur-md">
@@ -138,14 +169,17 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
                   <p className="text-[10px] opacity-40 italic">NO DATA PACKETS DETECTED...</p>
                 ) : (
                   <div className="space-y-2">
-                    {leaderboardData[game.type].sort((a,b) => a.time - b.time).slice(0, 5).map((entry, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-xs border-b border-white/5 pb-1">
+                    {[...leaderboardData[game.type]].sort((a, b) => {
+                      if (b.level !== a.level) return b.level - a.level;
+                      return a.time - b.time;
+                    }).slice(0, 10).map((entry, idx) => (
+                      <div key={idx} className={`flex justify-between items-center text-xs border-b border-white/5 pb-1 ${idx === 0 ? 'text-[#facc15]' : 'text-white'}`}>
                         <span className="flex items-center gap-2">
                           <span className="opacity-40">{idx + 1}.</span>
-                          <span className="text-white font-black">{entry.name}</span>
+                          <span className="font-black">{entry.name} {idx === 0 && <Crown size={10} className="inline ml-1" />}</span>
                         </span>
                         <span className="flex items-center gap-3 font-bold">
-                          <span className={`text-${game.color}-400`}>LV {entry.level}</span>
+                          <span className={idx === 0 ? 'text-[#facc15]' : `text-${game.color}-400`}>LV {entry.level}</span>
                           <span className="text-[#39ff14]">{(entry.time / 1000).toFixed(2)}s</span>
                         </span>
                       </div>
