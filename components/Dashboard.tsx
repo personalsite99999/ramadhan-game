@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { GameType, UserProgress, GlobalLeaderboard, LeaderboardEntry } from '../types';
-import { LayoutGrid, Brain, Binary, Rocket, MoveHorizontal, MessageCircle, Trophy, X, Crown, Users } from 'lucide-react';
+import { LayoutGrid, Brain, Binary, Rocket, MoveHorizontal, MessageCircle, Trophy, X, Crown } from 'lucide-react';
 
 interface DashboardProps {
   progress: UserProgress;
@@ -71,25 +70,28 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
       </div>
 
       <div className="p-6 pb-20">
-        <div className="text-center mb-6 pt-4">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <img 
-              src="https://josanvin.github.io/josanvin/img/LogoGames.png" 
-              alt="Logo Games" 
-              className="h-10 w-auto filter drop-shadow-[0_0_8px_#00f3ff]"
-            />
-            <h1 className="cyber-font text-4xl font-black tracking-tighter neon-glow-cyan">RAMADHAN</h1>
-          </div>
-          <h2 className="cyber-font text-2xl font-bold neon-glow-purple tracking-widest uppercase">Games</h2>
+        <div className="mb-6 pt-4 relative h-28 flex flex-col items-center justify-center">
+          {/* Logo di sebelah kiri dengan ukuran diperbesar */}
+          <img 
+            src="https://josanvin.github.io/josanvin/img/LogoGames2.png" 
+            alt="Logo Games" 
+            className="absolute left-3 top-2 h-24 w-auto filter drop-shadow-[0_0_15px_#00f3ff] z-10"
+          />
           
-          <div className="w-full overflow-hidden bg-black/40 border-y border-[#facc15]/30 py-2 mt-4 backdrop-blur-sm">
+          {/* Judul tetap di tengah */}
+          <div className="text-center z-0">
+            <h1 className="cyber-font text-4xl font-black tracking-tighter neon-glow-cyan leading-none">RAMADHAN</h1>
+            <h2 className="cyber-font text-2xl font-bold neon-glow-purple tracking-widest uppercase -mt-1">Games</h2>
+          </div>
+          
+          <div className="absolute bottom-0 left-0 w-full overflow-hidden bg-black/40 border-y border-[#facc15]/30 py-2 backdrop-blur-sm">
             <div className="animate-marquee whitespace-nowrap text-[#facc15] cyber-font text-[10px] tracking-widest uppercase font-bold">
-              SIAPKAN DIRIMU UNTUK BERBUKA PUASA DENGAN GAME SERU! --- DONASI : 0813-41-300-100 --- HUBUNGI VIA WHATSAPP : 0813-41-300-100 ---
+              NGABUBURIT MAKIN SERU DENGAN RAMADHAN GAMES CYBERPUNK! --- PECAHKAN REKOR SEBELUM BERBUKA! --- HUBUNGI OPERATOR: 0813-41-300-100 ---
             </div>
           </div>
-          
-          <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-[#00f3ff] to-transparent mt-4 opacity-50" />
         </div>
+
+        <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-[#00f3ff] to-transparent mb-8 opacity-50" />
 
         <div className="grid grid-cols-1 gap-6">
           {games.map((game) => (
@@ -128,7 +130,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
 
         <div className="mt-10 p-6 bg-black/60 border border-[#00f3ff]/20 rounded-lg text-center backdrop-blur-md">
           <p className="text-[10px] text-[#facc15] mb-2 cyber-font font-black uppercase tracking-widest">
-            Sambil Nunggu Buka, Yuk Main Game!
+            Sambil Nunggu Buka, Yuk Adu Ketangkasan!
           </p>
           <p className="text-sm text-[#00f3ff] mb-2 cyber-font font-bold">
             SYSTEM_OPERATOR: <a href="https://wa.me/6281341300100" className="underline hover:neon-glow-cyan transition-all font-black tracking-widest">0813-41-300-100</a>
