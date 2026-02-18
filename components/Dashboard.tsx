@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GameType, UserProgress, GlobalLeaderboard, LeaderboardEntry } from '../types';
-import { LayoutGrid, Brain, Binary, Rocket, MoveHorizontal, MessageCircle, Trophy, X, Crown } from 'lucide-react';
+import { LayoutGrid, Brain, Binary, Rocket, MoveHorizontal, MessageCircle, Trophy, X, Crown, Share2 } from 'lucide-react';
 
 interface DashboardProps {
   progress: UserProgress;
@@ -40,6 +40,12 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
     setShowLeaderboard(true);
   };
 
+  const shareToWhatsApp = () => {
+    const gameUrl = "https://josanvin.github.io/ramadhan-games";
+    const text = encodeURIComponent(`🌙 Ngabuburit seru di Ramadhan Games! 🎮\nMainkan 5 game ketangkasan dan pecahkan rekor Hall of Fame!\n\nCek di sini: ${gameUrl}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+  };
+
   return (
     <div className="flex-1 flex flex-col relative overflow-y-auto overflow-x-hidden no-scrollbar bg-[#000033]">
       <style dangerouslySetInnerHTML={{ __html: `
@@ -52,14 +58,20 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
 
       {/* Floating Buttons */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-3">
-        <a 
-          href="https://wa.me/6281341300100" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="p-3 bg-[#25D366] text-white rounded-full shadow-[0_0_20px_#25D366] flex items-center justify-center animate-bounce hover:scale-110 transition-transform"
+        <button 
+          onClick={shareToWhatsApp}
+          className="group relative p-3 bg-[#25D366] text-white rounded-full shadow-[0_0_20px_#25D366] flex items-center justify-center animate-bounce hover:scale-110 transition-transform"
+          title="Share to WhatsApp"
         >
-          <MessageCircle size={24} />
-        </a>
+          <div className="absolute -left-10 bg-black/80 px-2 py-1 rounded text-[8px] cyber-font opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-[#25D366]">SHARE_GAME</div>
+          <Share2 size={24} />
+          {/* Mini Logo Indicator for Branding */}
+          <img 
+            src="https://josanvin.github.io/josanvin/img/LogoGames2.png" 
+            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border border-white bg-white p-0.5 shadow-sm"
+            alt="logo"
+          />
+        </button>
         <button 
           onClick={openLeaderboard}
           className="p-3 bg-[#facc15] text-black rounded-full shadow-[0_0_20px_#facc15] flex flex-col items-center justify-center hover:scale-110 transition-transform"
@@ -71,7 +83,6 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
 
       <div className="p-6 pb-20">
         <div className="text-center mb-6 pt-4">
-          {/* Header Title with Enlarged Logo on Left and Centered Text */}
           <div className="relative flex items-center justify-center mb-2 min-h-[80px]">
             <img 
               src="https://josanvin.github.io/josanvin/img/LogoGames2.png" 
@@ -132,7 +143,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
             Sambil Nunggu Buka, Yuk Main Game! 🌙
           </p>
           <p className="text-sm text-[#00f3ff] mb-2 cyber-font font-bold">
-            SYSTEM_OPERATOR: <a href="https://wa.me/6281341300100" className="underline hover:neon-glow-cyan transition-all font-black tracking-widest">0813-41-300-100</a>
+            HUBUNGI ADMIN: <a href="https://wa.me/6281341300100" target="_blank" className="underline hover:neon-glow-cyan transition-all font-black tracking-widest">0813-41-300-100</a>
           </p>
         </div>
       </div>
@@ -143,7 +154,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
         </span>
       </div>
 
-      {/* Leaderboard Modal (Hall of Fame) */}
+      {/* Leaderboard Modal */}
       {showLeaderboard && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col p-6 animate-in fade-in duration-300">
           <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">

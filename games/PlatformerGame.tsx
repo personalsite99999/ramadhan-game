@@ -30,15 +30,19 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
     state.keys = { left: false, right: false, up: false };
     state.particles = [];
 
-    // Platform generation
-    const platCount = Math.max(6, 15 - Math.floor(level / 4));
+    // Improved Platform generation to guarantee reachability
+    const platCount = Math.max(8, 18 - Math.floor(level / 3));
     state.platforms = [{ x: 0, y: 580, w: 400, h: 50 }]; // Ground
     
+    let lastY = 580;
     for (let i = 0; i < platCount; i++) {
-      const w = Math.max(35, 140 - (level * 2));
+      const w = Math.max(40, 150 - (level * 2.5));
       const x = Math.random() * (400 - w);
-      const y = 500 - (i * (450 / platCount));
-      state.platforms.push({ x, y, w, h: 10 });
+      // Max vertical distance is ~100px to ensure jump reachability (jump is ~120px max)
+      const y = lastY - (Math.random() * 40 + 60); 
+      if (y < 80) break; // Don't block goal
+      state.platforms.push({ x, y, w, h: 12 });
+      lastY = y;
     }
 
     state.goal = { x: 50 + Math.random() * 300, y: 50, w: 25, h: 25 };
@@ -47,12 +51,12 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
     state.hazards = [];
     if (level >= 2) {
       const count = Math.floor(level / 2) + 1;
-      const speed = 1.0 + (level * 0.1);
+      const speed = 1.0 + (level * 0.12);
       for (let i = 0; i < count; i++) {
         state.hazards.push({
           x: Math.random() * 400,
           y: 100 + Math.random() * 350,
-          r: 5,
+          r: 6,
           vx: (Math.random() - 0.5) * speed,
           vy: (Math.random() - 0.5) * speed
         });
@@ -61,10 +65,10 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
 
     const update = () => {
       const p = state.player;
-      const gravity = 0.5;
-      const friction = 0.85;
-      const accel = 1.2;
-      const jumpPower = -11;
+      const gravity = 0.55;
+      const friction = 0.82;
+      const accel = 1.3;
+      const jumpPower = -12;
 
       // Input
       if (state.keys.left) p.vx -= accel;
@@ -73,8 +77,8 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
         p.vy = jumpPower;
         p.grounded = false;
         // Jump particles
-        for(let i=0; i<5; i++) {
-           state.particles.push({ x: p.x + p.w/2, y: p.y + p.h, r: Math.random()*3, life: 1, color: '#bc13fe' });
+        for(let i=0; i<6; i++) {
+           state.particles.push({ x: p.x + p.w/2, y: p.y + p.h, r: Math.random()*4, life: 1, color: '#bc13fe' });
         }
       }
 
@@ -85,8 +89,8 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
       p.y += p.vy;
 
       // Trail particles
-      if (Math.abs(p.vx) > 0.5) {
-         state.particles.push({ x: p.x + p.w/2, y: p.y + p.h/2, r: 2, life: 0.5, color: '#bc13fe55' });
+      if (Math.abs(p.vx) > 0.6) {
+         state.particles.push({ x: p.x + p.w/2, y: p.y + p.h/2, r: 2, life: 0.5, color: '#bc13fe44' });
       }
 
       // Bounds
@@ -97,10 +101,10 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
       // Collision
       p.grounded = false;
       for (const plat of state.platforms) {
-        if (p.vx + p.x + p.w > plat.x && p.x + p.vx < plat.x + plat.w &&
+        if (p.x + p.w > plat.x && p.x < plat.x + plat.w &&
             p.y + p.h + p.vy > plat.y && p.y + p.vy < plat.y + plat.h) {
           
-          if (p.vy > 0 && p.y + p.h <= plat.y + 5) {
+          if (p.vy > 0 && p.y + p.h <= plat.y + 10) {
             p.y = plat.y - p.h;
             p.vy = 0;
             p.grounded = true;
@@ -120,8 +124,8 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
 
       // Particles update
       state.particles = state.particles.filter(pt => {
-        pt.life -= 0.05;
-        pt.y += 0.5;
+        pt.life -= 0.04;
+        pt.y += 0.3;
         return pt.life > 0;
       });
 
@@ -136,7 +140,7 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
       ctx.fillStyle = '#050510';
       ctx.fillRect(0, 0, 400, 600);
 
-      // Grid Lines (Aesthetic)
+      // Grid Lines
       ctx.strokeStyle = '#00f3ff08';
       ctx.beginPath();
       for(let i=0; i<400; i+=40) { ctx.moveTo(i, 0); ctx.lineTo(i, 600); }
@@ -145,7 +149,7 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
 
       // Platforms
       ctx.fillStyle = '#00f3ff';
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 8;
       ctx.shadowColor = '#00f3ff';
       for (const plat of state.platforms) {
         ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
@@ -179,7 +183,7 @@ const PlatformerGame: React.FC<PlatformerGameProps> = ({ level, onWin, onLose })
 
       // Player
       ctx.fillStyle = p.color;
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 12;
       ctx.shadowColor = p.color;
       ctx.fillRect(p.x, p.y, p.w, p.h);
       ctx.shadowBlur = 0;
