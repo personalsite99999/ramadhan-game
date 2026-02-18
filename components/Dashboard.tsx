@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { GameType, UserProgress, GlobalLeaderboard, LeaderboardEntry } from '../types';
-import { LayoutGrid, Brain, Binary, Rocket, MoveHorizontal, MessageCircle, Trophy, X, Crown } from 'lucide-react';
+import { LayoutGrid, Brain, Binary, Rocket, MoveHorizontal, MessageCircle, Trophy, X, Crown, Users } from 'lucide-react';
 
 interface DashboardProps {
   progress: UserProgress;
@@ -25,14 +25,14 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
     { type: GameType.SNAKE, icon: <MoveHorizontal />, label: 'PANJANGIN ULER', color: 'pink', hex: '#ff00ff' },
   ];
 
-  const getTopRecord = (type: GameType): LeaderboardEntry | null => {
-    if (!leaderboardData || !leaderboardData[type] || leaderboardData[type].length === 0) return null;
-    // Sort by Level (desc) then Time (asc)
-    const sorted = [...leaderboardData[type]].sort((a, b) => {
-      if (b.level !== a.level) return b.level - a.level;
-      return a.time - b.time;
-    });
-    return sorted[0];
+  const getTopRecords = (type: GameType): LeaderboardEntry[] => {
+    if (!leaderboardData || !leaderboardData[type]) return [];
+    return [...leaderboardData[type]]
+      .sort((a, b) => {
+        if (b.level !== a.level) return b.level - a.level;
+        return a.time - b.time;
+      })
+      .slice(0, 5);
   };
 
   const openLeaderboard = () => {
@@ -48,6 +48,19 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .text-stroke-sm {
           text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+        @keyframes shine {
+          0% { left: -100%; }
+          100% { left: 100%; }
+        }
+        .shine-effect::after {
+          content: '';
+          position: absolute;
+          top: 0; left: -100%;
+          width: 50%; height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+          transform: skewX(-20deg);
+          animation: shine 3s infinite;
         }
       `}} />
 
@@ -83,56 +96,75 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
           <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-[#00f3ff] to-transparent mt-4 opacity-50" />
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 gap-8">
           {games.map((game) => {
-            const topRecord = getTopRecord(game.type);
+            const top5 = getTopRecords(game.type);
+            const king = top5[0];
             return (
-              <button
-                key={game.type}
-                onClick={() => onSelectGame(game.type)}
-                style={{ color: game.hex }}
-                className={`
-                  group relative p-5 bg-black/40 backdrop-blur-md flex items-center gap-5 
-                  transition-all duration-300 transform hover:scale-105 active:scale-95
-                  animated-border pulse-button
-                  neon-border-${game.color}
-                `}
-              >
-                <div className={`p-3 rounded-lg bg-black/50 neon-border-${game.color} group-hover:scale-110 transition-transform relative`}>
-                  {React.cloneElement(game.icon as React.ReactElement, { size: 36 })}
-                  {topRecord && (
-                    <div className="absolute -top-2 -left-2 text-[#facc15] animate-pulse">
-                      <Crown size={20} fill="#facc15" />
+              <div key={game.type} className="flex flex-col gap-2">
+                <button
+                  onClick={() => onSelectGame(game.type)}
+                  style={{ color: game.hex }}
+                  className={`
+                    group relative p-5 bg-black/40 backdrop-blur-md flex items-center gap-5 
+                    transition-all duration-300 transform hover:scale-[1.02] active:scale-95
+                    animated-border pulse-button shine-effect
+                    neon-border-${game.color}
+                  `}
+                >
+                  <div className={`p-3 rounded-lg bg-black/50 neon-border-${game.color} group-hover:scale-110 transition-transform relative`}>
+                    {React.cloneElement(game.icon as React.ReactElement, { size: 36 })}
+                    {king && (
+                      <div className="absolute -top-3 -left-3 text-[#facc15] animate-bounce">
+                        <Crown size={24} fill="#facc15" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 text-left">
+                    <span className={`block cyber-font text-2xl font-black tracking-tight group-hover:glitch-text neon-glow-${game.color} text-stroke-sm leading-none uppercase`}>
+                      {game.label}
+                    </span>
+                    
+                    <div className="flex items-center gap-2 mt-3">
+                      <div className="h-1.5 flex-1 bg-white/10 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-current transition-all duration-1000 shadow-[0_0_8px_currentColor]" 
+                          style={{ width: `${(progress[game.type] / 30) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-black opacity-100 drop-shadow-md">LV {progress[game.type]}/30</span>
                     </div>
-                  )}
-                </div>
-                <div className="flex-1 text-left">
-                  <span className={`block cyber-font text-2xl font-black tracking-tight group-hover:glitch-text neon-glow-${game.color} text-stroke-sm leading-none`}>
-                    {game.label}
-                  </span>
-                  
-                  {/* High Score Badge */}
-                  {topRecord ? (
-                    <div className="text-[9px] font-bold text-[#facc15] mt-1 flex items-center gap-1 uppercase tracking-tighter">
-                      <Trophy size={10} /> REKOR: {topRecord.name} ({topRecord.level} - {(topRecord.time / 1000).toFixed(1)}s)
+                  </div>
+                </button>
+
+                {/* MINI HALL OF FAME (TOP 5) */}
+                <div className={`bg-black/40 border-x border-b border-${game.hex}/20 rounded-b-lg p-3 mx-2 mt-[-8px] z-0`}>
+                  <div className="flex items-center gap-2 mb-2 opacity-60">
+                    <Users size={12} />
+                    <span className="text-[10px] cyber-font font-bold tracking-widest uppercase">Top 5 Heroes</span>
+                  </div>
+                  {top5.length > 0 ? (
+                    <div className="space-y-1">
+                      {top5.map((entry, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-[10px] border-b border-white/5 pb-1 last:border-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`${idx === 0 ? 'text-[#facc15]' : 'opacity-40'} font-black`}>{idx + 1}.</span>
+                            <span className={`font-bold ${idx === 0 ? 'text-[#facc15] uppercase' : 'text-white/80'}`}>{entry.name}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="opacity-50 font-bold">LV.{entry.level}</span>
+                            <span className="text-[#39ff14] font-black">{(entry.time / 1000).toFixed(1)}s</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <div className="text-[9px] font-bold text-white/30 mt-1 uppercase tracking-tighter">
-                      BELUM ADA REKOR
+                    <div className="text-[9px] opacity-30 italic text-center py-1 uppercase tracking-widest">
+                      Belum ada pahlawan terdeteksi...
                     </div>
                   )}
-
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="h-1.5 flex-1 bg-white/10 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-current transition-all duration-1000 shadow-[0_0_8px_currentColor]" 
-                        style={{ width: `${(progress[game.type] / 30) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-black opacity-100 drop-shadow-md">LV {progress[game.type]}/30</span>
-                  </div>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -169,10 +201,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
                   <p className="text-[10px] opacity-40 italic">NO DATA PACKETS DETECTED...</p>
                 ) : (
                   <div className="space-y-2">
-                    {[...leaderboardData[game.type]].sort((a, b) => {
-                      if (b.level !== a.level) return b.level - a.level;
-                      return a.time - b.time;
-                    }).slice(0, 10).map((entry, idx) => (
+                    {getTopRecords(game.type).map((entry, idx) => (
                       <div key={idx} className={`flex justify-between items-center text-xs border-b border-white/5 pb-1 ${idx === 0 ? 'text-[#facc15]' : 'text-white'}`}>
                         <span className="flex items-center gap-2">
                           <span className="opacity-40">{idx + 1}.</span>
