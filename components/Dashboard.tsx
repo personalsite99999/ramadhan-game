@@ -40,6 +40,9 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
     setShowLeaderboard(true);
   };
 
+  const waMessage = encodeURIComponent("Ayo main Ramadhan Games seru di: https://ramadhan-games.vercel.app 🌙🎮");
+  const waUrl = `https://wa.me/6281341300100?text=${waMessage}`;
+
   return (
     <div className="flex-1 flex flex-col relative overflow-y-auto overflow-x-hidden no-scrollbar bg-[#000033]">
       <style dangerouslySetInnerHTML={{ __html: `
@@ -53,7 +56,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
       {/* Floating Buttons */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-3">
         <a 
-          href="https://wa.me/6281341300100" 
+          href={waUrl} 
           target="_blank" 
           rel="noopener noreferrer"
           className="p-3 bg-[#25D366] text-white rounded-full shadow-[0_0_20px_#25D366] flex items-center justify-center animate-bounce hover:scale-110 transition-transform"
