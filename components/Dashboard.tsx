@@ -70,16 +70,16 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
       </div>
 
       <div className="p-6 pb-20">
-        <div className="mb-6 pt-4 relative h-28 flex flex-col items-center justify-center">
-          {/* Logo di sebelah kiri dengan ukuran diperbesar */}
+        <div className="mb-6 pt-4 relative h-32 flex flex-col items-center justify-center">
+          {/* Logo di sebelah kiri dengan margin-left diperhitungkan */}
           <img 
             src="https://josanvin.github.io/josanvin/img/LogoGames2.png" 
             alt="Logo Games" 
-            className="absolute left-3 top-2 h-24 w-auto filter drop-shadow-[0_0_15px_#00f3ff] z-10"
+            className="absolute left-3 top-0 h-28 w-auto filter drop-shadow-[0_0_15px_#00f3ff] z-10"
           />
           
-          {/* Judul tetap di tengah */}
-          <div className="text-center z-0">
+          {/* Judul tetap di tengah layar */}
+          <div className="text-center z-0 w-full">
             <h1 className="cyber-font text-4xl font-black tracking-tighter neon-glow-cyan leading-none">RAMADHAN</h1>
             <h2 className="cyber-font text-2xl font-bold neon-glow-purple tracking-widest uppercase -mt-1">Games</h2>
           </div>

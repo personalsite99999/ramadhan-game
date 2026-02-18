@@ -53,6 +53,11 @@
       .neon-border-orange { border: 1px solid #ff9100; box-shadow: 0 0 10px #ff9100, inset 0 0 5px #ff9100; }
       .neon-border-pink { border: 1px solid #ff00ff; box-shadow: 0 0 10px #ff00ff, inset 0 0 5px #ff00ff; }
 
+      .perspective-1000 { perspective: 1000px; }
+      .rotate-y-180 { transform: rotateY(180deg); }
+      .preserve-3d { transform-style: preserve-3d; }
+      .backface-hidden { backface-visibility: hidden; }
+
       .scanlines {
         position: fixed;
         top: 0;
@@ -70,6 +75,13 @@
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
       }
+
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+      }
+      .animate-shake { animation: shake 0.2s ease-in-out infinite; }
 
       .animated-border {
         position: relative;

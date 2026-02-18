@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface MemoryMatchProps {
   level: number;
@@ -10,94 +9,115 @@ interface MemoryMatchProps {
 const SYMBOLS = ['★', '⚡', '☢', '☣', '◈', '◇', '◎', '▣', '♥', '♦', '♣', '♠', '⊕', '⊗', '∆', '∇', '∑', '∞', '≈', '≉', 'Ω', 'β', 'γ', 'δ', 'λ', 'µ', 'π', 'φ', 'ψ', 'ω', 'Ѻ', 'Ѽ'];
 
 const MemoryMatch: React.FC<MemoryMatchProps> = ({ level, onWin, onLose }) => {
-  const [cards, setCards] = useState<{ id: number, symbol: string, flipped: boolean, solved: boolean }[]>([]);
+  const [cards, setCards] = useState<{ id: number, symbol: string, solved: boolean }[]>([]);
   const [flipped, setFlipped] = useState<number[]>([]);
   const [timeLeft, setTimeLeft] = useState(30);
   const [gridDim, setGridDim] = useState(4);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Use refs to stabilize handlers if needed
-  const winRef = useRef(onWin);
-  const loseRef = useRef(onLose);
-  useEffect(() => { winRef.current = onWin; loseRef.current = onLose; }, [onWin, onLose]);
-
-  useEffect(() => {
-    const dim = Math.min(8, level <= 1 ? 2 : (level <= 5 ? 4 : (level <= 15 ? 6 : 8)));
+  const initGame = useCallback(() => {
+    // Determine grid dimension: 2x2, 4x4, or 6x6
+    const dim = level <= 2 ? 2 : (level <= 10 ? 4 : 6);
     setGridDim(dim);
     
-    const count = (dim * dim) / 2;
-    const symbols = SYMBOLS.slice(0, count);
-    const deck = [...symbols, ...symbols]
+    const pairCount = (dim * dim) / 2;
+    const selectedSymbols = [...SYMBOLS].sort(() => Math.random() - 0.5).slice(0, pairCount);
+    const deck = [...selectedSymbols, ...selectedSymbols]
       .sort(() => Math.random() - 0.5)
-      .map((s, i) => ({ id: i, symbol: s, flipped: false, solved: false }));
+      .map((s, i) => ({ id: i, symbol: s, solved: false }));
     
     setCards(deck);
     setFlipped([]);
-    setTimeLeft(Math.max(15, 60 - level));
+    setTimeLeft(Math.max(8, 45 - (level * 1)));
+    setIsProcessing(false);
   }, [level]);
 
   useEffect(() => {
+    initGame();
+  }, [initGame]);
+
+  useEffect(() => {
     if (timeLeft <= 0) {
-      loseRef.current();
+      onLose();
       return;
     }
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, [timeLeft, onLose]);
 
   useEffect(() => {
     if (flipped.length === 2) {
+      setIsProcessing(true);
       const [id1, id2] = flipped;
       if (cards[id1].symbol === cards[id2].symbol) {
-        const nextCards = cards.map(c => 
-          (c.id === id1 || c.id === id2) ? { ...c, solved: true } : c
-        );
-        setCards(nextCards);
-        setFlipped([]);
-        if (nextCards.every(c => c.solved)) winRef.current();
+        // Match found
+        setTimeout(() => {
+          setCards(prev => {
+            const next = prev.map(c => (c.id === id1 || c.id === id2) ? { ...c, solved: true } : c);
+            if (next.every(c => c.solved)) {
+              onWin();
+            }
+            return next;
+          });
+          setFlipped([]);
+          setIsProcessing(false);
+        }, 400);
       } else {
-        setTimeout(() => setFlipped([]), 800);
+        // No match
+        setTimeout(() => {
+          setFlipped([]);
+          setIsProcessing(false);
+        }, 1000);
       }
     }
-  }, [flipped, cards]);
+  }, [flipped, cards, onWin]);
 
   const handleCardClick = (id: number) => {
-    if (flipped.length < 2 && !flipped.includes(id) && !cards[id].solved) {
-      setFlipped([...flipped, id]);
-    }
+    if (isProcessing || flipped.includes(id) || cards[id].solved) return;
+    setFlipped(prev => [...prev, id]);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 w-full h-full">
-      <div className="mb-4 flex gap-8 items-center">
-        <div className="text-xl cyber-font neon-glow-purple">TIME: {timeLeft}s</div>
+    <div className="flex flex-col items-center justify-center p-4 w-full h-full bg-black">
+      <div className="mb-6 w-full max-w-[340px] flex justify-between items-end border-b border-purple-500/30 pb-2">
+        <div>
+          <div className="text-[8px] cyber-font text-purple-400">MEMORY_NODE</div>
+          <div className="cyber-font text-xl neon-glow-purple">MATCH SYSTEM</div>
+        </div>
+        <div className={`cyber-font text-2xl ${timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-purple-400'}`}>
+          {timeLeft}s
+        </div>
       </div>
 
       <div 
-        className="grid gap-2 w-full max-w-[600px] aspect-square"
+        className="grid gap-3 w-full max-w-[340px] perspective-1000"
         style={{ gridTemplateColumns: `repeat(${gridDim}, 1fr)` }}
       >
         {cards.map(card => {
           const isFlipped = flipped.includes(card.id) || card.solved;
           return (
-            <button
-              key={card.id}
+            <div 
+              key={card.id} 
+              className="aspect-square relative preserve-3d transition-all duration-500 cursor-pointer"
+              style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
               onClick={() => handleCardClick(card.id)}
-              disabled={isFlipped}
-              className={`
-                aspect-square flex items-center justify-center text-2xl font-bold transition-all duration-300 transform
-                ${isFlipped ? 'bg-purple-900 border-purple-400 rotate-y-180' : 'bg-black border border-cyan-800'}
-                ${card.solved ? 'opacity-40 scale-95' : 'hover:scale-105'}
-                rounded-sm shadow-inner
-              `}
             >
-              {isFlipped ? (
-                <span className="text-[#bc13fe] drop-shadow-[0_0_5px_#bc13fe]">{card.symbol}</span>
-              ) : (
-                <div className="w-2 h-2 bg-cyan-900 rounded-full animate-pulse" />
-              )}
-            </button>
+              {/* Front Face (Hidden Symbol) */}
+              <div className="absolute inset-0 backface-hidden bg-black border-2 border-purple-500 rounded-lg flex items-center justify-center shadow-[inset_0_0_15px_rgba(188,19,254,0.3)] hover:border-white/50 transition-colors">
+                <div className="w-1/3 h-1/3 border border-purple-400/30 rounded-full animate-ping" />
+              </div>
+              
+              {/* Back Face (Visible Symbol) */}
+              <div className="absolute inset-0 backface-hidden rotate-y-180 bg-purple-900/40 border-2 border-purple-300 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(188,19,254,0.5)]">
+                <span className="text-3xl text-white neon-glow-purple font-black">{card.symbol}</span>
+              </div>
+            </div>
           );
         })}
+      </div>
+      
+      <div className="mt-8 text-[10px] cyber-font text-white/30 tracking-[0.3em] uppercase">
+        Identify all pairs to clear node
       </div>
     </div>
   );

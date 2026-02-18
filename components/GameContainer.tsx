@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GameType, GameState, LeaderboardEntry, GlobalLeaderboard } from '../types';
 import MazeGame from '../games/MazeGame';
@@ -23,12 +22,17 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
   const [isQualified, setIsQualified] = useState(false);
   const timerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
+  
+  // Ref untuk menyimpan waktu terbaru tanpa memicu re-render callback game
+  const timeRef = useRef(0);
 
   useEffect(() => {
     if (gameState === 'PLAYING') {
       startTimeRef.current = Date.now();
       timerRef.current = window.setInterval(() => {
-        setElapsedTime(Date.now() - startTimeRef.current);
+        const delta = Date.now() - startTimeRef.current;
+        setElapsedTime(delta);
+        timeRef.current = delta;
       }, 100);
     } else {
       if (timerRef.current) {
@@ -39,7 +43,8 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [gameState]);
 
-  const checkQualification = useCallback(() => {
+  // Fungsi pengecekan kualifikasi dipanggil hanya saat menang
+  const checkQualificationInternal = (currentLevel: number, finalTime: number) => {
     const leaderboard: GlobalLeaderboard = JSON.parse(localStorage.getItem('ramadhan_leaderboard') || '{}');
     const entries = leaderboard[gameType] || [];
     
@@ -51,17 +56,19 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
     });
 
     const fifthPlace = sorted[4];
-    if (level > fifthPlace.level) return true;
-    if (level === fifthPlace.level && elapsedTime < fifthPlace.time) return true;
+    if (currentLevel > fifthPlace.level) return true;
+    if (currentLevel === fifthPlace.level && finalTime < fifthPlace.time) return true;
 
     return false;
-  }, [gameType, level, elapsedTime]);
+  };
 
+  // Gunakan dependensi yang minimal agar komponen game tidak re-mount terus menerus
   const handleWin = useCallback(() => {
-    const qualified = checkQualification();
+    const finalTime = timeRef.current;
+    const qualified = checkQualificationInternal(level, finalTime);
     setIsQualified(qualified);
     setGameState('RECORD_NAME');
-  }, [checkQualification]);
+  }, [gameType, level]); // Tidak bergantung pada elapsedTime
 
   const handleLose = useCallback(() => {
     setGameState('GAMEOVER');
@@ -102,16 +109,19 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
     setLevel(next);
     onLevelUp(next);
     setElapsedTime(0);
+    timeRef.current = 0;
     setPlayerName('');
     setGameState('PLAYING');
   };
 
   const retryLevel = () => {
     setElapsedTime(0);
+    timeRef.current = 0;
     setPlayerName('');
     setGameState('PLAYING');
   };
 
+  // Komponen game sekarang stabil
   const gameComponent = useMemo(() => {
     if (gameState !== 'PLAYING') return null;
     switch (gameType) {

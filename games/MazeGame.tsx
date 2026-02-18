@@ -1,5 +1,4 @@
-
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 interface MazeGameProps {
   level: number;
@@ -10,22 +9,16 @@ interface MazeGameProps {
 const MazeGame: React.FC<MazeGameProps> = ({ level, onWin, onLose }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gridSize, setGridSize] = useState(5);
-  
-  // Use a ref for level to prevent dependency loops
-  const levelRef = useRef(level);
-  useEffect(() => { levelRef.current = level; }, [level]);
+  const playerRef = useRef({ x: 0, y: 0 });
+  const mazeRef = useRef<{ x: number, y: number, walls: boolean[] }[]>([]);
 
   useEffect(() => {
-    const newSize = Math.floor(5 + (level - 1) * (45 / 29));
+    // Scaling grid size: starts at 5x5, maxes out around 20x20 for level 30
+    const newSize = Math.floor(5 + (level - 1) * (15 / 29));
     setGridSize(newSize);
   }, [level]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
+  const generateMaze = useCallback(() => {
     const cols = gridSize;
     const rows = gridSize;
     const grid: { x: number, y: number, visited: boolean, walls: boolean[] }[] = [];
@@ -42,7 +35,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ level, onWin, onLose }) => {
     let current = grid[0];
     current.visited = true;
 
-    const generate = () => {
+    while (true) {
       let neighbors: any[] = [];
       const { x, y } = current;
       const top = grid[index(x, y - 1)];
@@ -58,6 +51,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ level, onWin, onLose }) => {
       if (neighbors.length > 0) {
         const next = neighbors[Math.floor(Math.random() * neighbors.length)];
         stack.push(current);
+        // Remove walls
         if (current.x < next.x) { current.walls[1] = false; next.walls[3] = false; }
         else if (current.x > next.x) { current.walls[3] = false; next.walls[1] = false; }
         if (current.y < next.y) { current.walls[2] = false; next.walls[0] = false; }
@@ -67,88 +61,133 @@ const MazeGame: React.FC<MazeGameProps> = ({ level, onWin, onLose }) => {
       } else if (stack.length > 0) {
         current = stack.pop();
       } else {
-        return true;
+        break;
       }
-      return false;
-    };
+    }
+    mazeRef.current = grid.map(c => ({ x: c.x, y: c.y, walls: c.walls }));
+    playerRef.current = { x: 0, y: 0 };
+  }, [gridSize]);
 
-    while (!generate());
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    let player = { x: 0, y: 0 };
-    const goal = { x: cols - 1, y: rows - 1 };
-    const enemyCount = Math.floor(level / 5);
-    const enemies = Array.from({ length: enemyCount }).map(() => ({
-      x: Math.floor(Math.random() * cols),
-      y: Math.floor(Math.random() * rows),
-      dir: Math.floor(Math.random() * 4)
-    }));
-
+    const cols = gridSize;
+    const rows = gridSize;
     const cellSize = Math.min(canvas.width / cols, canvas.height / rows);
     const offsetX = (canvas.width - cols * cellSize) / 2;
     const offsetY = (canvas.height - rows * cellSize) / 2;
+    const goal = { x: cols - 1, y: rows - 1 };
 
-    const draw = () => {
-      ctx.fillStyle = '#050505';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = '#00f3ff';
-      ctx.lineWidth = 2;
-      grid.forEach(cell => {
-        const x = cell.x * cellSize + offsetX;
-        const y = cell.y * cellSize + offsetY;
-        ctx.beginPath();
-        if (cell.walls[0]) { ctx.moveTo(x, y); ctx.lineTo(x + cellSize, y); }
-        if (cell.walls[1]) { ctx.moveTo(x + cellSize, y); ctx.lineTo(x + cellSize, y + cellSize); }
-        if (cell.walls[2]) { ctx.moveTo(x + cellSize, y + cellSize); ctx.lineTo(x, y + cellSize); }
-        if (cell.walls[3]) { ctx.moveTo(x, y + cellSize); ctx.lineTo(x, y); }
-        ctx.stroke();
-      });
-      ctx.fillStyle = '#39ff14';
-      ctx.fillRect(goal.x * cellSize + offsetX + 4, goal.y * cellSize + offsetY + 4, cellSize - 8, cellSize - 8);
-      ctx.fillStyle = '#bc13fe';
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw Maze Walls
+    ctx.strokeStyle = '#00f3ff';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    mazeRef.current.forEach(cell => {
+      const x = cell.x * cellSize + offsetX;
+      const y = cell.y * cellSize + offsetY;
       ctx.beginPath();
-      ctx.arc(player.x * cellSize + offsetX + cellSize/2, player.y * cellSize + offsetY + cellSize/2, cellSize/3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#ff003c';
-      enemies.forEach(e => {
-        ctx.fillRect(e.x * cellSize + offsetX + 6, e.y * cellSize + offsetY + 6, cellSize - 12, cellSize - 12);
-      });
-    };
+      if (cell.walls[0]) { ctx.moveTo(x, y); ctx.lineTo(x + cellSize, y); }
+      if (cell.walls[1]) { ctx.moveTo(x + cellSize, y); ctx.lineTo(x + cellSize, y + cellSize); }
+      if (cell.walls[2]) { ctx.moveTo(x + cellSize, y + cellSize); ctx.lineTo(x, y + cellSize); }
+      if (cell.walls[3]) { ctx.moveTo(x, y + cellSize); ctx.lineTo(x, y); }
+      ctx.stroke();
+    });
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const cell = grid[index(player.x, player.y)];
-      if (!cell) return;
-      let moved = false;
-      if ((e.key === 'ArrowUp' || e.key === 'w') && !cell.walls[0]) { player.y--; moved = true; }
-      else if ((e.key === 'ArrowRight' || e.key === 'd') && !cell.walls[1]) { player.x++; moved = true; }
-      else if ((e.key === 'ArrowDown' || e.key === 's') && !cell.walls[2]) { player.y++; moved = true; }
-      else if ((e.key === 'ArrowLeft' || e.key === 'a') && !cell.walls[3]) { player.x--; moved = true; }
-      if (moved) {
-        if (player.x === goal.x && player.y === goal.y) onWin();
-        enemies.forEach(e => { if (e.x === player.x && e.y === player.y) onLose(); });
+    // Draw Goal
+    ctx.fillStyle = '#39ff14';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#39ff14';
+    ctx.fillRect(goal.x * cellSize + offsetX + cellSize * 0.2, goal.y * cellSize + offsetY + cellSize * 0.2, cellSize * 0.6, cellSize * 0.6);
+    ctx.shadowBlur = 0;
+    
+    // Draw Player
+    ctx.fillStyle = '#bc13fe';
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = '#bc13fe';
+    ctx.beginPath();
+    ctx.arc(
+      playerRef.current.x * cellSize + offsetX + cellSize / 2, 
+      playerRef.current.y * cellSize + offsetY + cellSize / 2, 
+      cellSize / 3, 0, Math.PI * 2
+    );
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }, [gridSize]);
+
+  useEffect(() => {
+    generateMaze();
+    draw();
+  }, [gridSize, generateMaze, draw]);
+
+  const handleMove = useCallback((key: string) => {
+    const { x, y } = playerRef.current;
+    const idx = x + y * gridSize;
+    const cell = mazeRef.current[idx];
+    if (!cell) return;
+
+    let nextX = x, nextY = y;
+    const k = key.toLowerCase();
+    if ((k === 'arrowup' || k === 'w') && !cell.walls[0]) nextY--;
+    else if ((k === 'arrowright' || k === 'd') && !cell.walls[1]) nextX++;
+    else if ((k === 'arrowdown' || k === 's') && !cell.walls[2]) nextY++;
+    else if ((k === 'arrowleft' || k === 'a') && !cell.walls[3]) nextX--;
+
+    if (nextX !== x || nextY !== y) {
+      playerRef.current = { x: nextX, y: nextY };
+      if (nextX === gridSize - 1 && nextY === gridSize - 1) {
+        onWin();
+      } else {
         draw();
       }
-    };
+    }
+  }, [gridSize, onWin, draw]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    draw();
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gridSize, onWin, onLose]); // level removed from deps to prevent regenerate
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => handleMove(e.key);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleMove]);
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full p-4 overflow-hidden">
-      <canvas 
-        ref={canvasRef} 
-        width={350} 
-        height={350} 
-        className="neon-border-cyan rounded-lg"
-      />
-      <div className="mt-6 grid grid-cols-3 gap-2 w-full max-w-[200px]">
+    <div className="flex flex-col items-center justify-center w-full h-full p-4">
+      <div className="relative mb-4">
+        <canvas ref={canvasRef} width={340} height={340} className="neon-border-cyan rounded-lg bg-black" />
+        <div className="absolute top-2 left-2 text-[8px] cyber-font text-cyan-500 opacity-50">SYS_MAZE_V2.0</div>
+      </div>
+      
+      <div className="mt-4 grid grid-cols-3 gap-2">
         <div />
-        <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowUp'}))} className="p-4 bg-black/50 border border-cyan-500 rounded active:scale-90 select-none">↑</button>
+        <button 
+          onPointerDown={(e) => { e.preventDefault(); handleMove('w'); }} 
+          className="w-16 h-16 flex items-center justify-center bg-black/40 border-2 border-cyan-500 rounded-xl active:bg-cyan-500 active:text-black transition-all neon-glow-cyan"
+        >
+          <span className="text-2xl">↑</span>
+        </button>
         <div />
-        <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowLeft'}))} className="p-4 bg-black/50 border border-cyan-500 rounded active:scale-90 select-none">←</button>
-        <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown'}))} className="p-4 bg-black/50 border border-cyan-500 rounded active:scale-90 select-none">↓</button>
-        <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowRight'}))} className="p-4 bg-black/50 border border-cyan-500 rounded active:scale-90 select-none">→</button>
+        <button 
+          onPointerDown={(e) => { e.preventDefault(); handleMove('a'); }} 
+          className="w-16 h-16 flex items-center justify-center bg-black/40 border-2 border-cyan-500 rounded-xl active:bg-cyan-500 active:text-black transition-all neon-glow-cyan"
+        >
+          <span className="text-2xl">←</span>
+        </button>
+        <button 
+          onPointerDown={(e) => { e.preventDefault(); handleMove('s'); }} 
+          className="w-16 h-16 flex items-center justify-center bg-black/40 border-2 border-cyan-500 rounded-xl active:bg-cyan-500 active:text-black transition-all neon-glow-cyan"
+        >
+          <span className="text-2xl">↓</span>
+        </button>
+        <button 
+          onPointerDown={(e) => { e.preventDefault(); handleMove('d'); }} 
+          className="w-16 h-16 flex items-center justify-center bg-black/40 border-2 border-cyan-500 rounded-xl active:bg-cyan-500 active:text-black transition-all neon-glow-cyan"
+        >
+          <span className="text-2xl">→</span>
+        </button>
       </div>
     </div>
   );
