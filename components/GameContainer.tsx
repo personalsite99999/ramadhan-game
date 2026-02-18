@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GameType, GameState, LeaderboardEntry, GlobalLeaderboard } from '../types';
 import MazeGame from '../games/MazeGame';
 import MemoryMatch from '../games/MemoryMatch';
@@ -21,23 +21,35 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
   const [elapsedTime, setElapsedTime] = useState(0);
   const [playerName, setPlayerName] = useState('');
   const timerRef = useRef<number | null>(null);
-  const startTime = useRef<number>(0);
+  const startTimeRef = useRef<number>(0);
+
+  // Use refs to keep track of current state for stable callbacks
+  const levelRef = useRef(level);
+  useEffect(() => { levelRef.current = level; }, [level]);
 
   useEffect(() => {
     if (gameState === 'PLAYING') {
-      startTime.current = Date.now();
+      startTimeRef.current = Date.now();
       timerRef.current = window.setInterval(() => {
-        setElapsedTime(Date.now() - startTime.current);
-      }, 10);
+        setElapsedTime(Date.now() - startTimeRef.current);
+      }, 100); // Updated to 100ms for performance, UI still feels fast
     } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [gameState]);
 
-  const handleWin = () => {
+  // Stable callbacks for the games
+  const handleWin = useCallback(() => {
     setGameState('RECORD_NAME');
-  };
+  }, []);
+
+  const handleLose = useCallback(() => {
+    setGameState('GAMEOVER');
+  }, []);
 
   const saveRecord = () => {
     if (!playerName.trim()) return;
@@ -62,10 +74,6 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
     }
   };
 
-  const handleLose = () => {
-    setGameState('GAMEOVER');
-  };
-
   const nextLevel = () => {
     const next = Math.min(30, level + 1);
     setLevel(next);
@@ -79,7 +87,10 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
     setGameState('PLAYING');
   };
 
-  const renderGame = () => {
+  // Memoize the game component to avoid re-mounting on timer ticks
+  const gameComponent = useMemo(() => {
+    if (gameState !== 'PLAYING') return null;
+    
     switch (gameType) {
       case GameType.MAZE: return <MazeGame level={level} onWin={handleWin} onLose={handleLose} />;
       case GameType.MEMORY: return <MemoryMatch level={level} onWin={handleWin} onLose={handleLose} />;
@@ -88,7 +99,7 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
       case GameType.SNAKE: return <SnakeGame level={level} onWin={handleWin} onLose={handleLose} />;
       default: return null;
     }
-  };
+  }, [gameType, level, gameState, handleWin, handleLose]);
 
   return (
     <div className="relative w-full h-full flex flex-col bg-black overflow-hidden">
@@ -103,17 +114,17 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
         </div>
         <div className="flex flex-col items-end">
           <div className="text-[10px] opacity-60 flex items-center gap-1"><Timer size={10}/> RUNTIME</div>
-          <div className="cyber-font text-xs text-[#39ff14]">{(elapsedTime / 1000).toFixed(2)}s</div>
+          <div className="cyber-font text-xs text-[#39ff14]">{(elapsedTime / 1000).toFixed(1)}s</div>
         </div>
       </div>
 
       <div className="flex-1 relative">
-        {gameState === 'PLAYING' && renderGame()}
+        {gameComponent}
 
         {/* Record Name Overlay */}
         {gameState === 'RECORD_NAME' && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl p-6">
-            <h2 className="cyber-font text-3xl mb-2 text-[#facc15] neon-glow-cyan">NEW RECORD!</h2>
+            <h2 className="cyber-font text-3xl mb-2 text-[#facc15] neon-glow-cyan text-center">NEW RECORD!</h2>
             <div className="text-center mb-6">
               <p className="text-xs opacity-60 uppercase mb-1">Clear Time</p>
               <p className="text-4xl cyber-font text-[#39ff14]">{(elapsedTime / 1000).toFixed(2)}s</p>
@@ -129,8 +140,6 @@ const GameContainer: React.FC<GameContainerProps> = ({ gameType, currentLevel, o
                   placeholder="INPUT_ID_TAG"
                   className="w-full bg-black/50 border border-cyan-500/50 p-4 cyber-font text-center text-white focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
                 />
-                <div className="absolute -bottom-1 -right-1 w-3 h-3 border-r border-b border-cyan-500" />
-                <div className="absolute -top-1 -left-1 w-3 h-3 border-l border-t border-cyan-500" />
               </div>
               <button 
                 onClick={saveRecord}

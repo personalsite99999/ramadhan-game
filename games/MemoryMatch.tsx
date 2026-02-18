@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface MemoryMatchProps {
   level: number;
@@ -15,8 +15,12 @@ const MemoryMatch: React.FC<MemoryMatchProps> = ({ level, onWin, onLose }) => {
   const [timeLeft, setTimeLeft] = useState(30);
   const [gridDim, setGridDim] = useState(4);
 
+  // Use refs to stabilize handlers if needed
+  const winRef = useRef(onWin);
+  const loseRef = useRef(onLose);
+  useEffect(() => { winRef.current = onWin; loseRef.current = onLose; }, [onWin, onLose]);
+
   useEffect(() => {
-    // Scaling: Level 1 (2x2) to Level 30 (8x8)
     const dim = Math.min(8, level <= 1 ? 2 : (level <= 5 ? 4 : (level <= 15 ? 6 : 8)));
     setGridDim(dim);
     
@@ -33,12 +37,12 @@ const MemoryMatch: React.FC<MemoryMatchProps> = ({ level, onWin, onLose }) => {
 
   useEffect(() => {
     if (timeLeft <= 0) {
-      onLose();
+      loseRef.current();
       return;
     }
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
-  }, [timeLeft, onLose]);
+  }, [timeLeft]);
 
   useEffect(() => {
     if (flipped.length === 2) {
@@ -49,12 +53,12 @@ const MemoryMatch: React.FC<MemoryMatchProps> = ({ level, onWin, onLose }) => {
         );
         setCards(nextCards);
         setFlipped([]);
-        if (nextCards.every(c => c.solved)) onWin();
+        if (nextCards.every(c => c.solved)) winRef.current();
       } else {
         setTimeout(() => setFlipped([]), 800);
       }
     }
-  }, [flipped, cards, onWin]);
+  }, [flipped, cards]);
 
   const handleCardClick = (id: number) => {
     if (flipped.length < 2 && !flipped.includes(id) && !cards[id].solved) {
