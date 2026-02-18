@@ -41,8 +41,9 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onSelectGame }) => {
   };
 
   const shareToWhatsApp = () => {
-    const gameUrl = "https://josanvin.github.io/ramadhan-games";
-    const text = encodeURIComponent(`🌙 Ngabuburit seru di Ramadhan Games! 🎮\nMainkan 5 game ketangkasan dan pecahkan rekor Hall of Fame!\n\nCek di sini: ${gameUrl}`);
+    // Correct URL as requested
+    const gameUrl = "https://ramadhan-games.vercel.app/";
+    const text = encodeURIComponent(`🌙 Ngabuburit makin seru di Ramadhan Games! 🎮✨\n\nMainkan 5 game ketangkasan cyberpunk sambil nunggu buka puasa. Pecahkan rekor dan jadilah juara Hall of Fame!\n\nMain sekarang di: ${gameUrl}`);
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
